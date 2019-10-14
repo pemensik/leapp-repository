@@ -41,8 +41,15 @@ class ConfigFile(object):
     def is_modified(self):
         return (self.origina == self.buff)
 
+    def root_section(self):
+        return ConfigSection(self, None, 0, len(self.buffer))
+
 class ConfigSection(object):
     """ Representation of section or key inside single configuration file """
+
+    TYPE_BARE    = 1
+    TYPE_QSTRING = 2
+    TYPE_BLOCK   = 3
 
     def __init__(self, config, name=None, start=None, end=None):
         """
@@ -54,11 +61,76 @@ class ConfigSection(object):
         self.start = start
         self.end = end
 
+    def __repr__(self):
+        text = self.config.buffer[self.start:self.end+1]
+        path = self.config.path
+        return 'ConfigSection({path}:{start}-{end}: "{text}")'.format(
+            path=path, start=self.start, end=self.end,
+            text=text
+        )
+
+    def type(self):
+        if self.config.buffer.startswith('{', self.start):
+            return self.TYPE_BLOCK
+        elif self.config.buffer.startswith('"', self.start):
+            return self.TYPE_QSTRING
+        else:
+            return self.TYPE_BARE
+
     def value(self):
         return self.config.buffer[self.start:self.end+1]
 
+    def invalue(self):
+        """
+        Return just inside value of blocks and quoted strings
+        """
+        t = self.type()
+        if t != self.TYPE_BARE:
+            return self.config.buffer[self.start+1:self.end]
+        else:
+            return self.value()
+    pass
+
+class ConfigVariableSection(ConfigSection):
+    """
+    Representation for key and value with variable parameters
+
+    Intended for view and zone.
+    """
+    def __init__(self, sectionlist, name, zone_class=None):
+        """
+        Creates variable block for zone or view
+
+        :param sectionlist: list of ConfigSection, obtained from IscConfigParser.find_values()
+        """
+        last = next(reversed(sectionlist))
+        first = sectionlist[0]
+        self.config = first.config
+        self.name = name
+        self.start = first.start
+        self.end = last.end
+        self.values = sectionlist
+        # For optional dns class, like IN or CH
+        self.zone_class = zone_class
+
+    def key(self):
+        if self.zone_class is None:
+            return self.name
+        else:
+            return self.zone_class + '_' + self.name
+
+    def firstblock(self):
+        """
+        Return first block section in this tool
+        """
+        for section in self.values:
+            if section.type() == ConfigSection.TYPE_BLOCK:
+                return section
+        return None
+
+
 # Main parser class
-class BindParser(object):
+class IscConfigParser(object):
     """ Parser file with support of included files.
 
     Reads ISC BIND configuration file and tries to skip commented blocks, nested sections and similar stuff.
@@ -68,10 +140,11 @@ class BindParser(object):
     CONFIG_FILE = "/etc/named.conf"
     FILES_TO_CHECK = []
 
-    CHAR_DELIM = ";"
+    CHAR_DELIM = ";" # Must be single character
     CHAR_CLOSING = CHAR_DELIM + "})]"
     CHAR_CLOSING_WHITESPACE = CHAR_CLOSING + string.whitespace
     CHAR_KEYWORD = string.ascii_letters + string.digits + '-_'
+    CHAR_STR_OPEN = '"'
 
     def __init__(self, config=None):
         """ Construct parser
@@ -125,17 +198,15 @@ class BindParser(object):
     def is_opening_char(self, c):
          return c in "\"'{(["
 
-    def remove_comments(self, istr):
+    def remove_comments(self, istr, space_replace=False):
         """
         Removes all comments from the given string.
 
         :param istr: input string
-        :return: return
+        :param space_replace When true, replace comments with spaces. Skip them by default.
+        :return: istr without comments
         """
 
-        isCommented = False
-        isBlockComment = False
-        str_open = "\""
         ostr = ""
 
         length = len(istr)
@@ -145,11 +216,12 @@ class BindParser(object):
             if self.is_comment_start(istr, index):
                 index = self.find_end_of_comment(istr,index)
                 if index == -1:
-                    # comment till EOF
-                    break
-                if istr[index] == "\n":
+                    index = length
+                if space_replace:
+                    ostr = ostr.ljust(index)
+                if index < length and istr[index] == "\n":
                     ostr += "\n"
-            elif istr[index] in str_open:
+            elif istr[index] in self.CHAR_STR_OPEN:
                 end_str = self.find_closing_char(istr, index)
                 if end_str == -1:
                     ostr += istr[index:]
@@ -161,6 +233,20 @@ class BindParser(object):
             index += 1
 
         return ostr
+
+    def replace_comments(self, istr):
+        """
+        Replaces all comments by spaces in the given string.
+
+        :param istr: input string
+        :returns: string of the same length with comments replaced
+        """
+        return self.remove_comments(istr, True)
+
+    def remove_comments_config(self, cfg, space_replace=False):
+        config_nocomment = copy.copy(cfg)
+        config_nocomment.buffer = self.remove_comments(config_nocomment.buffer, space_replace)
+        return config_nocomment
 
     def find_next_token(self, istr,index=0, end_index=-1, end_report=False):
         """
@@ -260,7 +346,7 @@ class BindParser(object):
             "(" : ")",
             "[" : "]",
             "\"" : "\"",
-            ";" : None,
+            self.CHAR_DELIM : None,
             }
         length = len(istr)
         if end_index >= 0 and end_index < length:
@@ -272,7 +358,7 @@ class BindParser(object):
         if index >= length or index < 0:
             return -1
 
-        closing_char = important_chars.get(istr[index], ';')
+        closing_char = important_chars.get(istr[index], self.CHAR_DELIM)
         if closing_char is None:
             return -1;
 
@@ -293,7 +379,7 @@ class BindParser(object):
                     break
                 index += deep_close
             elif curr_c == closing_char:
-                if curr_c == ';':
+                if curr_c == self.CHAR_DELIM:
                     index -= 1
                 return index
             index += 1
@@ -340,7 +426,7 @@ class BindParser(object):
                     # key has been found
                     return index
 
-            while not only_first and index != -1 and istr[index] != ";":
+            while not only_first and index != -1 and istr[index] != self.CHAR_DELIM:
                 index = self.find_next_token(istr, index)
             index = self.find_next_token(istr, index)
 
@@ -377,7 +463,7 @@ class BindParser(object):
 
         return None
 
-    def find_next_val(self, cfg, key=None, index=0, end_index=-1):
+    def find_next_val(self, cfg, key=None, index=0, end_index=-1, end_report=False):
         """ Find following token.
 
             :param cfg: input token
@@ -385,12 +471,14 @@ class BindParser(object):
             :returns: ConfigSection object or None
             :rtype: ConfigSection
         """
-        start = self.find_next_token(cfg.buffer, index)
+        start = self.find_next_token(cfg.buffer, index, end_index, end_report)
         if start < 0:
             return None
-        remains = cfg.buffer[start:]
+        if end_index < 0:
+            end_index = len(cfg.buffer)
+        remains = cfg.buffer[start:end_index]
         if start >= 0 and not self.is_opening_char(cfg.buffer[start]):
-            return self.find_next_key(cfg, start, end_index)
+            return self.find_next_key(cfg, start, end_index, end_report)
         else:
             end = self.find_closing_char(cfg.buffer, start, end_index)
             if end == -1 or (end > end_index and end_index > 0):
@@ -428,18 +516,45 @@ class BindParser(object):
             raise(TypeError("section must be ConfigSection"))
         return self.find_val(section.config, key, section.start+1, section.end)
 
-    def find_options(self):
-        """ Helper to find options section in current files
+    def find_values(self, section, key):
+        """ Find key in section and list variable parameters
 
-            :rtype ConfigSection:
-            There has to be only one options in all included files.
+            :param key: Name to statement to find
+            :returns: List of all found values in form of ConfigSection. First is key itself.
+
+            Returns all sections of keyname. They can be mix of "quoted strings", {nested blocks}
+            or just bare keywords. First key is section of key itself, final section includes ';'.
+            Makes it possible to comment out whole section including terminal character.
         """
-        for cfg in self.FILES_TO_CHECK:
-            v = self.find_val(cfg, "options")
-            if v is not None:
-                return v
-        return None
 
+        if isinstance(section, ConfigFile):
+            cfg = section
+            index = 0
+            end_index = len(cfg.buffer)
+        elif isinstance(section, ConfigSection):
+            cfg = section.config
+            index = section.start+1
+            end_index = section.end
+            if end_index > index:
+                end_index -= 1
+        else:
+            raise(TypeError('Unexpected type'))
+
+        key_start = self.find_key(cfg.buffer, key, index, end_index)
+        key_end = key_start+len(key)-1
+        if key_start < 0 or key_end >= end_index:
+            return None
+
+        # First value is always just keyword
+        v = ConfigSection(cfg, key, key_start, key_end)
+        values = []
+        while isinstance(v, ConfigSection):
+            values.append(v)
+            if v.value() == self.CHAR_DELIM:
+                break
+            v = self.find_next_val(cfg, key, v.end+1, section.end, end_report=True)
+        return values
+        
     #######################################################
     ### CONFIGURATION fixes PART - END
     #######################################################
@@ -515,194 +630,66 @@ class BindParser(object):
         self.load_included_files()
     pass
 
+class BindParser(IscConfigParser):
+    """
+    Bind specific specialization IscConfigParser.
 
-#
-# Legacy preupgrade parts that should be removed.
-#
-class BindLegacyParser(BindParser):
-    """ ISC BIND parser with unrelated pieces.
-
-        Contains methods that should have separate methods or classes.
+    Provides some helpers for classes only used in BIND, not generic isccfg format.
     """
 
-    # FIXME: Not sure what should be changed
-    OUTPUT_DIR = '/tmp'
+    def find_options(self):
+        """ Helper to find options section in current files
 
-    FIXED_CONFIGS = {}
-    # Exit codes
-    # TODO: Remove from here
-    EXIT_NOT_APPLICABLE = 0
-    EXIT_PASS = 1
-    EXIT_INFORMATIONAL = 2
-    EXIT_FIXED = 3
-    EXIT_FAIL = 4
-    EXIT_ERROR = 5
-
-    def log_info(self, msg):
-        print(msg)
-
-    def fixed_config(self, cfg):
-        if cfg.path in self.FIXED_CONFIGS:
-            return self.FIXED_CONFIGS[cfg.path]
-        else:
-            for c in self.FILES_TO_CHECK:
-                if cfg.path == c.path:
-                    return c
-
-    def write_fixed_configs_to_disk(self, result, sol_text):
+            :rtype ConfigSection:
+            There has to be only one options in all included files.
         """
-        Writes fixed configs in the respective directories.
+        for cfg in self.FILES_TO_CHECK:
+            v = self.find_val(cfg, "options")
+            if v is not None:
+                return v
+        return None
+
+    def find_views_file(self, cfg):
         """
-        if result > self.EXIT_FIXED:
-            output_dir = os.path.join(self.OUTPUT_DIR, "dirtyconf")
-            sol_text.add_solution("The configuration files could not be fixed completely as there are still some issues that need a review.")
-        else:
-            output_dir = os.path.join(self.OUTPUT_DIR, "cleanconf")
-            sol_text.add_solution("The configuration files have been completely fixed.")
+        Helper searching all views in single file
 
-        for path in self.FIXED_CONFIGS:
-            config = self.FIXED_CONFIGS[path]
-            curr_path = os.path.join(output_dir, path[1:])
-
-            # create dirs to make sure they exist
-            try:
-                os.makedirs(os.path.dirname(curr_path))
-            except OSError as e:
-                # if the dir already exist (errno 17), pass
-                if e.errno == 17:
-                    pass
-                else:
-                    raise e
-
-            with open(curr_path, "w") as f:
-                f.write(config.buffer)
-            msg = "Written the fixed config file to '" + curr_path + "'"
-            self.log_info(msg)
-            sol_text.add_solution(msg)
-
-    def new_config(self, path, parent=None):
-        if not parent is None:
-            self.log_info("Include statement found in \"{parent_path}\": "
-                     "loading file \"{path}\"".format(
-                             parent_path=parent.path, path=include))
-        else:
-            self.log_info("Loading the configuration file: \"{path}\"".format(path=path))
-        super(self.__class__, self).new_config(path, parent)
-
-    #######################################################
-    def find_val_bounds_of_key(self, config, key, index=0, end_index=-1):
+        :ptype cfg: ConfigFile
+        :returns: triple (viewsection, class, list[sections])
         """
-        Return indexes of beginning and end of the value of the key.
+        views = {}
 
-        Otherwise return pair -1, -1.
+        root = cfg.root_section()
+        vl = root
+        while root is not None:
+            vl = self.find_values(root, "view")
+            if vl is not None and len(vl) >= 2:
+                vname = vl[1].invalue()
+                vclass = None
+                vblock = vl[2]
+                if vblock.type() != ConfigSection.TYPE_BLOCK:
+                    vclass = vblock.value()
+                    vblock = vl[3]
+                variable = ConfigVariableSection(vl, vname, vclass)
+                views[variable.key()] = variable
+                # Skip current view
+                root.start = variable.end+1
+            else:
+                # no more usable views
+                root = None
+
+        return views
+
+    def find_views(self):
+        """ Helper to find view section in current files
+
+            :rtype ConfigSection:
+            There has to be only one view with that name in all included files.
         """
-        index = self.find_next_token(config, self.find_key(config, key, index, end_index))
-        close_index = self.find_closing_char(config, index, end_index)
-        if close_index == -1 or (close_index > end_index and end_index > 0):
-            return -1, -1
-        return index, close_index
+        views = {}
 
-    ### CONFIGURATION CHECKS PART - END
-    #######################################################
-    ### CONFIGURATION fixes PART - BEGIN
-    #######################################################
-    def change_val(self, config, section, key, val):
-        """
-        Change value of key inside the section.
+        for cfg in self.FILES_TO_CHECK:
+            v = self.find_views_file(cfg)
+            views.update(v)
+        return views
 
-        val has to include all characters, including even curly brackets or quotes.
-        Return modified string or None.
-        """
-        index = self.find_key(config, section)
-        if index == -1:
-            return None
-
-        # find boundaries of the section
-        index = self.find_next_token(config, index)
-        if index == -1 or config[index] != "{":
-            # that's really unexpected situation - maybe wrong config file
-            return None
-        end_index = self.find_closing_char(config, index)
-        if end_index == -1 or config[end_index] != "}":
-            # invalid config file?
-            return None
-
-        # find boundaries of value
-        index, end_index = self.find_val_bounds_of_key(config, key, index+1, end_index)
-        if -1 in [index, end_index] or config[index] != "\"":
-            return None
-
-        return config[:index] + val + config[end_index+1:]
-
-    def log_statement(self, key, v):
-        if v is None:
-            self.log_info('Statement {stm} not found'.format(stm=key))
-        else:
-            self.log_info('Statement {stm} bounds {start}-{end}: {text}'.format(
-                    stm=key, start=v.start, end=v.end, text=v.value()
-                    ))
-
-    def fix_statement(self, cfg, section, key, val, add_missing=False):
-        """Add or change statement into the section of the config file.
-       
-        :param cfg: ConfigFile object 
-        :param section: (sectionname, start, end) tuple with name and start and stop indexes, returned by find_val_bounds_of_key
-        :param key: option name to replace value
-        :param val: new value for option key
-        """
-        if not isinstance(cfg, ConfigFile):
-            raise(TypeError("cfg must be ConfigFile parameter"))
-
-        fixed_config = None
-        config = self.fixed_config(cfg)
-        v = self.find_val(config, key,
-                section.start+1, section.end)
-        if v is not None:
-            val_correct = (val == v.value())
-            self.log_statement(key, v)
-            if not val_correct:
-                fixed_config = self.change_val(config.buffer, section.name, key, val)
-        else:
-            self.log_statement(key, v)
-
-        if fixed_config is None and add_missing:
-            fixed_config = self.add_keyval(config.buffer, section.name, key, val)
-                
-        if v != None and val_correct:
-            # value is already correct one
-            config.status = self.EXIT_PASS
-            return True
-        if fixed_config is None:
-            # value could not be changed or added
-            config.status = self.EXIT_FAIL
-            return False
-        else:
-            config.buffer = fixed_config
-            config.status = self.EXIT_FIXED
-            self.FIXED_CONFIGS[config.path] = config
-            return True
-
-    def add_keyval(self, config, section, key, val):
-        """
-        Add key with value to the section.
-
-        val has to include all characters, including even curly brackets or quotes.
-        Return modified string or None.
-        """
-        index = self.find_key(config, section)
-        if index == -1:
-            return None
-
-        # find end of the section
-        index = self.find_next_token(config, index)
-        if index == -1 or config[index] != "{":
-            # that's really unexpected situation - maybe wrong config file
-            return None
-        index = self.find_closing_char(config, index)
-        if index == -1 or config[index] != "}":
-            # invalid config file?
-            return None
-
-        new_config = "%s\n\t%s %s;\n%s" % (config[:index], key, val, config[index:])
-        return new_config
-
+    pass
