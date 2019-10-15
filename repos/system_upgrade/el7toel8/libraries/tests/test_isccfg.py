@@ -2,7 +2,7 @@
 #
 # Tests for bind parsing
 
-import isccfg
+from leapp.libraries.common import isccfg
 
 class MockConfigFile(isccfg.ConfigFile):
 
