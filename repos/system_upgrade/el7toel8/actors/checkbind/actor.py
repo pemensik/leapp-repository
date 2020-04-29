@@ -14,7 +14,6 @@ class CheckBind(Actor):
     name = 'check_bind'
     consumes = (InstalledRedHatSignedRPM, BindFacts)
     produces = (Report,)
-    #tags = (ChecksPhaseTag, IPUWorkflowTag)
     tags = (ChecksPhaseTag, IPUWorkflowTag)
 
     def process(self):
