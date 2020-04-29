@@ -558,7 +558,69 @@ class IscConfigParser(object):
                 break
             v = self.find_next_val(cfg, key, v.end+1, section.end, end_report=True)
         return values
-        
+
+    def find(self, key_string, cfg=None, delimiter='.'):
+        """
+        Helper searching for values under requested sections
+
+        Search for statement under some sections. It is inspired by xpath style paths,
+        but searches section in bind configuration.
+
+        :param key_string: keywords delimited by dots. For example options.dnssec-lookaside
+        :ptype key_string: str
+        :param cfg: Search only in given config file
+        :ptype cfg: ConfigFile
+        :returns: list of ConfigVariableSection
+        """
+        keys = key_string.split(delimiter)
+        if cfg is not None:
+            return self._find_values_simple(cfg.root_section(), keys)
+        else:
+            items = []
+            for cfg in self.FILES_TO_CHECK:
+                items.extend(self._find_values_simple(cfg.root_section(), keys))
+            return items
+
+    def _variable_section(self, vl, parent=None):
+        """ Create ConfigVariableSection with a name and optionally class
+
+            Intended for view and zone in bind.
+            :returns: ConfigVariableSection
+        """
+        variable = None
+        if vl is not None and len(vl) >= 2:
+            vname = vl[1].invalue()
+            vclass = None
+            vblock = vl[2]
+            if vblock.type() != ConfigSection.TYPE_BLOCK and len(vl)>3:
+                vclass = vblock.value()
+                vblock = vl[3]
+            variable = ConfigVariableSection(vl, vname, vclass)
+            variable.parent = parent
+        return variable
+
+    def _find_values_simple(self, section, keys):
+        found_values = []
+        sect = section.copy()
+
+        while sect is not None:
+            vl = self.find_values(sect, keys[0])
+            if vl is None:
+                break
+            if len(keys) <= 1:
+                variable = self._variable_section(vl, section)
+                found_values.append(variable)
+                sect.start = variable.end+1
+            else:
+                for v in vl:
+                    if v.type() == ConfigSection.TYPE_BLOCK:
+                        vl2 = self._find_values_simple(v, keys[1:])
+                        if vl2 is not None:
+                            found_values.extend(vl2)
+                sect.start = vl[-1].end+1
+
+        return found_values
+
     #######################################################
     ### CONFIGURATION fixes PART - END
     #######################################################
@@ -653,23 +715,6 @@ class BindParser(IscConfigParser):
                 return v
         return None
 
-    def _variable_section(self, vl):
-        """ Create ConfigVariableSection with a name and optionally class
-
-            Intended for view and zone in bind.
-            :returns: ConfigVariableSection
-        """
-        variable = None
-        if vl is not None and len(vl) >= 2:
-            vname = vl[1].invalue()
-            vclass = None
-            vblock = vl[2]
-            if vblock.type() != ConfigSection.TYPE_BLOCK and len(vl)>3:
-                vclass = vblock.value()
-                vblock = vl[3]
-            variable = ConfigVariableSection(vl, vname, vclass)
-        return variable
-
     def find_views_file(self, cfg):
         """
         Helper searching all views in single file
@@ -692,50 +737,6 @@ class BindParser(IscConfigParser):
                 root = None
 
         return views
-
-    def find(self, key_string, cfg=None, delimiter='.'):
-        """
-        Helper searching for values under requested sections
-
-        Search for statement under some sections. It is inspired by xpath style paths,
-        but searches section in bind configuration.
-
-        :param key_string: keywords delimited by dots. For example options.dnssec-lookaside
-        :ptype key_string: str
-        :ptype cfg: ConfigFile
-        :returns: list of ConfigVariableSection
-        """
-        keys = key_string.split(delimiter)
-        if cfg is not None:
-            return self._find_values_simple(cfg.root_section(), keys)
-        else:
-            items = []
-            for cfg in self.FILES_TO_CHECK:
-                items.extend(self._find_values_simple(cfg.root_section(), keys))
-            return items
-
-    def _find_values_simple(self, section, keys):
-        found_values = []
-
-        root = section
-
-        while root is not None:
-            vl = self.find_values(root, keys[0])
-            if vl is None:
-                break
-            if len(keys) <= 1:
-                variable = self._variable_section(vl)
-                found_values.append(variable)
-                root.start = variable.end+1
-            else:
-                for v in vl:
-                    if v.type() == ConfigSection.TYPE_BLOCK:
-                        vl2 = self._find_values_simple(v, keys[1:])
-                        if vl2 is not None:
-                            found_values.extend(vl2)
-                root.start = vl[-1].end+1
-
-        return found_values
 
     def find_views(self):
         """ Helper to find view section in current files

@@ -216,18 +216,19 @@ def test_key_lookaside_simple():
     assert values[4].value() == ';'
 
 def test_find_index():
+    """ Test simplified searching for values in sections """
     parser = isccfg.BindParser(named_conf_default)
+    assert len(parser.FILES_TO_CHECK) >= 1
     stmts = parser.find('logging.channel.severity')
-    assert stmts is not None
+    assert stmts is not None and len(stmts) == 1
     assert isinstance(stmts[0], isccfg.ConfigVariableSection)
-    assert len(stmts) == 1
     values = stmts[0].values
     assert len(values) >= 1
     key = values[0].value()
     assert key == 'severity'
     assert values[1].value() == 'dynamic'
     recursion = parser.find('options.recursion')
-    assert len(recursion) == 1
+    assert len(recursion) == 1 and len(recursion[0].values) >= 2
     assert recursion[0].values[0].value() == 'recursion'
     assert recursion[0].values[1].value() == 'yes'
 
