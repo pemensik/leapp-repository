@@ -198,6 +198,39 @@ def test_key_lookaside_all():
     assert values[3].value() == '"dlv.isc.org"'
     assert values[4].value() == ';'
 
+def test_key_lookaside_simple():
+    """ Test getting variable arguments after keyword """
+    parser = isccfg.BindParser(options_lookaside_manual)
+    assert len(parser.FILES_TO_CHECK) == 1
+    stmts = parser.find('options.dnssec-lookaside')
+    assert stmts is not None
+    assert len(stmts) == 1
+    assert isinstance(stmts[0], isccfg.ConfigVariableSection)
+    values = stmts[0].values
+    assert len(values) >= 4
+    key = values[0].value()
+    assert key == 'dnssec-lookaside'
+    assert values[1].value() == '"."'
+    assert values[2].value() == 'trust-anchor'
+    assert values[3].value() == '"dlv.isc.org"'
+    assert values[4].value() == ';'
+
+def test_find_index():
+    parser = isccfg.BindParser(named_conf_default)
+    stmts = parser.find('logging.channel.severity')
+    assert stmts is not None
+    assert isinstance(stmts[0], isccfg.ConfigVariableSection)
+    assert len(stmts) == 1
+    values = stmts[0].values
+    assert len(values) >= 1
+    key = values[0].value()
+    assert key == 'severity'
+    assert values[1].value() == 'dynamic'
+    recursion = parser.find('options.recursion')
+    assert len(recursion) == 1
+    assert recursion[0].values[0].value() == 'recursion'
+    assert recursion[0].values[1].value() == 'yes'
+
 def test_key_views_lookaside():
     """ Test getting variable arguments for views """
 
