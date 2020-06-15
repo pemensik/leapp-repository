@@ -6,7 +6,7 @@ from leapp.libraries.common import isccfg
 
 class MockConfigFile(isccfg.ConfigFile):
 
-    def __init__(self, content, path = '/etc/named.conf'):
+    def __init__(self, content, path='/etc/named.conf'):
         # intentionally omitting parent constructor
         self.path = path
         self.buffer = self.original = content
@@ -275,6 +275,6 @@ def test_remove_comments():
     assert len(removed_comments) < len(cfg.buffer)
     replaced_comments = parser.replace_comments(cfg.buffer)
     assert len(replaced_comments) == len(cfg.buffer)
-    assert not ('This is auto' in replaced_comments)
-    assert not ('comment' in replaced_comments)
-    assert not ('Note no IN' in replaced_comments)
+    assert not 'This is auto' in replaced_comments
+    assert not 'comment' in replaced_comments
+    assert not 'Note no IN' in replaced_comments

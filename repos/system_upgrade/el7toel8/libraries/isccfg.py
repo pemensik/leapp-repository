@@ -5,12 +5,13 @@
 import re
 import os.path
 import string
+import copy
 
 class ConfigParseError(Exception):
     """ Generic error when parsing config file """
 
-    def __init__(self, message, error = None):
-        super(self.__class__, self).__init__(message)
+    def __init__(self, message, error=None):
+        super(Exception, self).__init__(message)
         self.error = error
     pass
 
@@ -47,9 +48,9 @@ class ConfigFile(object):
 class ConfigSection(object):
     """ Representation of section or key inside single configuration file """
 
-    TYPE_BARE    = 1
-    TYPE_QSTRING = 2
-    TYPE_BLOCK   = 3
+    TYPE_BARE=1
+    TYPE_QSTRING=2
+    TYPE_BLOCK=3
 
     def __init__(self, config, name=None, start=None, end=None):
         """
@@ -78,8 +79,7 @@ class ConfigSection(object):
             return self.TYPE_BLOCK
         elif self.config.buffer.startswith('"', self.start):
             return self.TYPE_QSTRING
-        else:
-            return self.TYPE_BARE
+        return self.TYPE_BARE
 
     def value(self):
         return self.config.buffer[self.start:self.end+1]
@@ -91,8 +91,7 @@ class ConfigSection(object):
         t = self.type()
         if t != self.TYPE_BARE:
             return self.config.buffer[self.start+1:self.end]
-        else:
-            return self.value()
+        return self.value()
     pass
 
 class ConfigVariableSection(ConfigSection):
@@ -101,7 +100,7 @@ class ConfigVariableSection(ConfigSection):
 
     Intended for view and zone.
     """
-    def __init__(self, sectionlist, name, zone_class=None):
+    def __init__(self, sectionlist, name, zone_class=None, parent=None):
         """
         Creates variable block for zone or view
 
@@ -109,13 +108,13 @@ class ConfigVariableSection(ConfigSection):
         """
         last = next(reversed(sectionlist))
         first = sectionlist[0]
-        self.config = first.config
-        self.name = name
-        self.start = first.start
-        self.end = last.end
+        super(ConfigSection, self).__init__(
+            first.config, name, start=first.start, end=last.end
+        )
         self.values = sectionlist
         # For optional dns class, like IN or CH
         self.zone_class = zone_class
+        self.parent = parent
 
     def key(self):
         if self.zone_class is None:
@@ -157,7 +156,7 @@ class IscConfigParser(object):
             Initialize contents from path to real config or already loaded ConfigFile class.
         """
         if isinstance(config, ConfigFile):
-            self.FILES_TO_CHECK = [ config ]
+            self.FILES_TO_CHECK = [config]
             self.load_included_files()
         elif config is not None:
             self.load_config(config)
@@ -200,7 +199,7 @@ class IscConfigParser(object):
         return -1
 
     def is_opening_char(self, c):
-         return c in "\"'{(["
+        return c in "\"'{(["
 
     def remove_comments(self, istr, space_replace=False):
         """
@@ -218,7 +217,7 @@ class IscConfigParser(object):
 
         while index < length:
             if self.is_comment_start(istr, index):
-                index = self.find_end_of_comment(istr,index)
+                index = self.find_end_of_comment(istr, index)
                 if index == -1:
                     index = length
                 if space_replace:
@@ -252,7 +251,7 @@ class IscConfigParser(object):
         config_nocomment.buffer = self.remove_comments(config_nocomment.buffer, space_replace)
         return config_nocomment
 
-    def find_next_token(self, istr,index=0, end_index=-1, end_report=False):
+    def find_next_token(self, istr, index=0, end_index=-1, end_report=False):
         """
         Return index of another interesting token or -1 when there is not next.
 
@@ -290,18 +289,14 @@ class IscConfigParser(object):
         #skip to the end of the current token
         if istr[index] == '\\':
             index += 2
-            if index > length:
-                return -1
         elif self.is_opening_char(istr[index]):
-            index2 = self.find_closing_char(istr, index, end_index)
-            if index2 == -1:
-                return -1
-            index = index2 +1;
+            index = self.find_closing_char(istr, index, end_index)
+            if index != -1:
+                index += 1
         elif self.is_comment_start(istr, index):
-            index2 = self.find_end_of_comment(istr, index)
-            if index2 == -1:
-                return -1
-            index = index2 +1
+            index = self.find_end_of_comment(istr, index)
+            if index != -1:
+                index += 1
         elif istr[index] not in self.CHAR_CLOSING_WHITESPACE:
             # so we have to skip to the end of the current token
             index += 1
@@ -318,7 +313,7 @@ class IscConfigParser(object):
             index += 1
 
         # find next token (can be already under the current index)
-        while index < end_index:
+        while index >= 0 and index < end_index:
             if istr[index] == '\\':
                 index += 2
                 continue
@@ -364,7 +359,7 @@ class IscConfigParser(object):
 
         closing_char = important_chars.get(istr[index], self.CHAR_DELIM)
         if closing_char is None:
-            return -1;
+            return -1
 
         isString = istr[index] in "\""
         index += 1
@@ -424,7 +419,7 @@ class IscConfigParser(object):
             return -1
 
         while index != -1:
-            remains = istr[index:]
+            #remains = istr[index:]
             if istr.startswith(key, index):
                 if index+keylen < end_index and istr[index+keylen] not in self.CHAR_KEYWORD:
                     # key has been found
@@ -450,14 +445,14 @@ class IscConfigParser(object):
             end_index = length
 
         if index > end_index or index < 0:
-            raise(IndexError("Invalid cfg index"))
+            raise IndexError("Invalid cfg index")
 
         while index != -1:
             keystart = index
             while istr[index] in self.CHAR_KEYWORD and index < end_index:
                 index += 1
 
-            if index <= end_index and keystart<index and istr[index] not in self.CHAR_KEYWORD:
+            if index <= end_index and keystart < index and istr[index] not in self.CHAR_KEYWORD:
                     # key has been found
                     return ConfigSection(cfg, istr[keystart:index], keystart, index-1)
             elif istr[index] in self.CHAR_DELIM:
@@ -480,15 +475,14 @@ class IscConfigParser(object):
             return None
         if end_index < 0:
             end_index = len(cfg.buffer)
-        remains = cfg.buffer[start:end_index]
+        #remains = cfg.buffer[start:end_index]
         if start >= 0 and not self.is_opening_char(cfg.buffer[start]):
             return self.find_next_key(cfg, start, end_index, end_report)
-        else:
-            end = self.find_closing_char(cfg.buffer, start, end_index)
-            if end == -1 or (end > end_index and end_index > 0):
-                return None
-            else:
-                return ConfigSection(cfg, key, start, end)
+
+        end = self.find_closing_char(cfg.buffer, start, end_index)
+        if end == -1 or (end > end_index and end_index > 0):
+            return None
+        return ConfigSection(cfg, key, start, end)
 
     def find_val(self, cfg, key, index=0, end_index=-1):
         """ Find value of keyword specified by key
@@ -575,11 +569,11 @@ class IscConfigParser(object):
         keys = key_string.split(delimiter)
         if cfg is not None:
             return self._find_values_simple(cfg.root_section(), keys)
-        else:
-            items = []
-            for cfg in self.FILES_TO_CHECK:
-                items.extend(self._find_values_simple(cfg.root_section(), keys))
-            return items
+
+        items = []
+        for cfgs in self.FILES_TO_CHECK:
+            items.extend(self._find_values_simple(cfgs.root_section(), keys))
+        return items
 
     def _variable_section(self, vl, parent=None):
         """ Create ConfigVariableSection with a name and optionally class
@@ -592,11 +586,10 @@ class IscConfigParser(object):
             vname = vl[1].invalue()
             vclass = None
             vblock = vl[2]
-            if vblock.type() != ConfigSection.TYPE_BLOCK and len(vl)>3:
+            if vblock.type() != ConfigSection.TYPE_BLOCK and len(vl) > 3:
                 vclass = vblock.value()
                 vblock = vl[3]
-            variable = ConfigVariableSection(vl, vname, vclass)
-            variable.parent = parent
+            variable = ConfigVariableSection(vl, vname, vclass, parent)
         return variable
 
     def _find_values_simple(self, section, keys):
@@ -624,20 +617,6 @@ class IscConfigParser(object):
     #######################################################
     ### CONFIGURATION fixes PART - END
     #######################################################
-
-    def is_config_changed(self):
-        """
-        Checks if the configuration files changed.
-        """
-        # FIXME: not sure what this should do
-        return False
-        with open(VALUE_ALLCHANGED, "r") as f:
-            files = f.read()
-            for f in self.FILES_TO_CHECK:
-                found = re.findall(f.path, files)
-                if found:
-                    return True
-        return False
 
     def is_file_loaded(self, path=""):
         """
@@ -672,7 +651,10 @@ class IscConfigParser(object):
                     self.new_config(include)
                 except IOError as e:
                     raise(ConfigParseError(
-                            "Cannot open the configuration file: \"{path}\" included by \"{parent_path}\"".format(parent_path=ch_file.path, path=include), e)
+                            "Cannot open the configuration file: \"{path}\" "
+                            "included by \"{parent_path}\"".format(
+                                parent_path=ch_file.path, path=include
+                            ), e)
                          )
 
 

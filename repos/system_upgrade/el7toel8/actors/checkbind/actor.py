@@ -5,6 +5,7 @@ from leapp.tags import ChecksPhaseTag, IPUWorkflowTag
 from leapp import reporting
 from leapp.libraries.common import isccfg
 
+COMMON_REPORT_TAGS = [reporting.Tags.SERVICES]
 
 class CheckBind(Actor):
     """

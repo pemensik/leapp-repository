@@ -10,7 +10,7 @@ def parseconfig(path='/etc/named.conf'):
 
     options = parser.find_options()
     if options:
-    views = parser.find_views()
+        views = parser.find_views()
 
 def make_statementstring(parser, section, statement):
     """
