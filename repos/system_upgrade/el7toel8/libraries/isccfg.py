@@ -11,7 +11,7 @@ class ConfigParseError(Exception):
     """ Generic error when parsing config file """
 
     def __init__(self, message, error=None):
-        super(Exception, self).__init__(message)
+        super(self.__class__, self).__init__(message)
         self.error = error
     pass
 
@@ -48,9 +48,9 @@ class ConfigFile(object):
 class ConfigSection(object):
     """ Representation of section or key inside single configuration file """
 
-    TYPE_BARE=1
-    TYPE_QSTRING=2
-    TYPE_BLOCK=3
+    TYPE_BARE = 1
+    TYPE_QSTRING = 2
+    TYPE_BLOCK = 3
 
     def __init__(self, config, name=None, start=None, end=None):
         """
@@ -108,7 +108,7 @@ class ConfigVariableSection(ConfigSection):
         """
         last = next(reversed(sectionlist))
         first = sectionlist[0]
-        super(ConfigSection, self).__init__(
+        super(self.__class__, self).__init__(
             first.config, name, start=first.start, end=last.end
         )
         self.values = sectionlist
@@ -119,8 +119,7 @@ class ConfigVariableSection(ConfigSection):
     def key(self):
         if self.zone_class is None:
             return self.name
-        else:
-            return self.zone_class + '_' + self.name
+        return self.zone_class + '_' + self.name
 
     def firstblock(self):
         """
@@ -453,8 +452,8 @@ class IscConfigParser(object):
                 index += 1
 
             if index <= end_index and keystart < index and istr[index] not in self.CHAR_KEYWORD:
-                    # key has been found
-                    return ConfigSection(cfg, istr[keystart:index], keystart, index-1)
+                # key has been found
+                return ConfigSection(cfg, istr[keystart:index], keystart, index-1)
             elif istr[index] in self.CHAR_DELIM:
                 return ConfigSection(cfg, istr[index], index, index)
 
@@ -495,7 +494,7 @@ class IscConfigParser(object):
             :rtype: ConfigSection
         """
         if not isinstance(cfg, ConfigFile):
-            raise(TypeError("cfg must be ConfigFile parameter"))
+            raise TypeError("cfg must be ConfigFile parameter")
 
         if end_index < 0:
             end_index = len(cfg.buffer)
@@ -511,7 +510,7 @@ class IscConfigParser(object):
             Section is object found by previous find_val call.
         """
         if not isinstance(section, ConfigSection):
-            raise(TypeError("section must be ConfigSection"))
+            raise TypeError("section must be ConfigSection")
         return self.find_val(section.config, key, section.start+1, section.end)
 
     def find_values(self, section, key):
@@ -536,7 +535,7 @@ class IscConfigParser(object):
             if end_index > index:
                 end_index -= 1
         else:
-            raise(TypeError('Unexpected type'))
+            raise TypeError('Unexpected type')
 
         key_start = self.find_key(cfg.buffer, key, index, end_index)
         key_end = key_start+len(key)-1

@@ -27,10 +27,9 @@ def make_statementstring(parser, section, statement):
         s += v.value() + ' '
         if v.value() != ';':
             s += ' '
-    if len(s)>0:
+    if s:
         s = s[:-1]
     return s
-            
 
 def makesection_options(parser, section):
     model = BindSectionModel()
