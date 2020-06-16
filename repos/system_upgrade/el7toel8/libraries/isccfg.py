@@ -11,7 +11,7 @@ class ConfigParseError(Exception):
     """ Generic error when parsing config file """
 
     def __init__(self, message, error=None):
-        super(self.__class__, self).__init__(message)
+        super(ConfigParseError, self).__init__(message)
         self.error = error
     pass
 
@@ -40,7 +40,7 @@ class ConfigFile(object):
             f.close()
 
     def is_modified(self):
-        return (self.origina == self.buff)
+        return self.original == self.buff
 
     def root_section(self):
         return ConfigSection(self, None, 0, len(self.buffer))
@@ -108,7 +108,7 @@ class ConfigVariableSection(ConfigSection):
         """
         last = next(reversed(sectionlist))
         first = sectionlist[0]
-        super(self.__class__, self).__init__(
+        super(ConfigVariableSection, self).__init__(
             first.config, name, start=first.start, end=last.end
         )
         self.values = sectionlist
