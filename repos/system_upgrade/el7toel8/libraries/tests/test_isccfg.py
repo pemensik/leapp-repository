@@ -128,6 +128,7 @@ def check_in_section(parser, section, key, value):
         :type section: bind.ConfigSection
         :type key: str
         :param value: expected value """
+    assert isinstance(section, isccfg.ConfigSection)
     cfgval = parser.find_val_section(section, key)
     assert isinstance(cfgval, isccfg.ConfigSection)
     assert cfgval.value() == value
@@ -141,7 +142,6 @@ def test_lookaside_no():
     parser = isccfg.BindParser(options_lookaside_no)
     assert len(parser.FILES_TO_CHECK) == 1
     opt = parser.find_options()
-    assert isinstance(opt, isccfg.ConfigSection)
     check_in_section(parser, opt, "dnssec-lookaside", "no")
 
 def test_lookaside_commented():
@@ -156,7 +156,6 @@ def test_default():
     parser = isccfg.BindParser(named_conf_default)
     assert len(parser.FILES_TO_CHECK) == 4
     opt = parser.find_options()
-    assert isinstance(opt, isccfg.ConfigSection)
     check_in_section(parser, opt, "directory", '"/var/named"')
     check_in_section(parser, opt, "session-keyfile", '"/run/named/session.key"')
     check_in_section(parser, opt, "allow-query", '{ localhost; }')

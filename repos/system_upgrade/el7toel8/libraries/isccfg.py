@@ -40,46 +40,58 @@ class ConfigFile(object):
             f.close()
 
     def is_modified(self):
-        return self.original == self.buff
+        return self.original == self.buffer
 
     def root_section(self):
         return ConfigSection(self, None, 0, len(self.buffer))
 
 class ConfigSection(object):
-    """ Representation of section or key inside single configuration file """
+    """ Representation of section or key inside single configuration file.
+
+    Section means statement, block, quoted string or any similar. """
 
     TYPE_BARE = 1
     TYPE_QSTRING = 2
     TYPE_BLOCK = 3
+    TYPE_IGNORED = 4 # comments and whitespaces
 
-    def __init__(self, config, name=None, start=None, end=None):
+    def __init__(self, config, name=None, start=None, end=None, kind=None):
         """
         :param config: config file inside which is this section
         :type config: ConfigFile
+        :param kind: type of this section
         """
         self.config = config
         self.name = name
         self.start = start
         self.end = end
+        self.ctext = self.value() # a copy for modification
+        if kind is None:
+            if self.config.buffer.startswith('{', self.start):
+                self.kind = self.TYPE_BLOCK
+            elif self.config.buffer.startswith('"', self.start):
+                self.kind = self.TYPE_QSTRING
+            else:
+                self.kind = self.TYPE_BARE
+        else:
+            self.kind = kind
 
     def __repr__(self):
-        text = self.config.buffer[self.start:self.end+1]
+        text = self.value()
         path = self.config.path
-        return 'ConfigSection({path}:{start}-{end}: "{text}")'.format(
+        return 'ConfigSection#{kind}({path}:{start}-{end}: "{text}")'.format(
             path=path, start=self.start, end=self.end,
-            text=text
+            text=text, kind=self.kind
         )
 
-    def copy(self):
-        return ConfigSection(self.config, self.name, self.start, self.end)
+    def __str__(self):
+        return self.value()
 
+    def copy(self):
+        return ConfigSection(self.config, self.name, self.start, self.end, self.kind)
 
     def type(self):
-        if self.config.buffer.startswith('{', self.start):
-            return self.TYPE_BLOCK
-        elif self.config.buffer.startswith('"', self.start):
-            return self.TYPE_QSTRING
-        return self.TYPE_BARE
+        return self.kind
 
     def value(self):
         return self.config.buffer[self.start:self.end+1]
@@ -89,14 +101,14 @@ class ConfigSection(object):
         Return just inside value of blocks and quoted strings
         """
         t = self.type()
-        if t != self.TYPE_BARE:
+        if t == self.TYPE_QSTRING or t == self.TYPE_BLOCK:
             return self.config.buffer[self.start+1:self.end]
         return self.value()
     pass
 
 class ConfigVariableSection(ConfigSection):
     """
-    Representation for key and value with variable parameters
+    Representation for key and values of variable length
 
     Intended for view and zone.
     """
@@ -434,6 +446,7 @@ class IscConfigParser(object):
         """ Modernized variant of find_key
             :type cfg: ConfigFile
             :param index: Where to start search
+            :rtype: ConfigSection
 
             Searches for first place of bare keyword, without quotes or block.
         """
@@ -475,7 +488,7 @@ class IscConfigParser(object):
         if end_index < 0:
             end_index = len(cfg.buffer)
         #remains = cfg.buffer[start:end_index]
-        if start >= 0 and not self.is_opening_char(cfg.buffer[start]):
+        if not self.is_opening_char(cfg.buffer[start]):
             return self.find_next_key(cfg, start, end_index, end_report)
 
         end = self.find_closing_char(cfg.buffer, start, end_index)
@@ -537,13 +550,16 @@ class IscConfigParser(object):
         else:
             raise TypeError('Unexpected type')
 
-        key_start = self.find_key(cfg.buffer, key, index, end_index)
-        key_end = key_start+len(key)-1
-        if key_start < 0 or key_end >= end_index:
-            return None
+        if key is None:
+            v = self.find_next_key(cfg, index, end_index)
+        else:
+            key_start = self.find_key(cfg.buffer, key, index, end_index)
+            key_end = key_start+len(key)-1
+            if key_start < 0 or key_end >= end_index:
+                return None
+            # First value is always just keyword
+            v = ConfigSection(cfg, key, key_start, key_end)
 
-        # First value is always just keyword
-        v = ConfigSection(cfg, key, key_start, key_end)
         values = []
         while isinstance(v, ConfigSection):
             values.append(v)
@@ -654,7 +670,7 @@ class IscConfigParser(object):
                             "included by \"{parent_path}\"".format(
                                 parent_path=ch_file.path, path=include
                             ), e)
-                         )
+                         ) from e
 
 
     def load_main_config(self):
@@ -665,7 +681,7 @@ class IscConfigParser(object):
             self.new_config(self.CONFIG_FILE)
         except IOError as e:
             raise(ConfigParseError(
-                "Cannot open the configuration file: \"{path}\"".format(path=self.CONFIG_FILE)), e)
+                "Cannot open the configuration file: \"{path}\"".format(path=self.CONFIG_FILE)), e) from e
 
     def load_config(self, path=None):
         """
