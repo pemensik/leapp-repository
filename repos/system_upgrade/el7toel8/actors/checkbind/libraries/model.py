@@ -1,5 +1,5 @@
-from leapp import model
 from model import BindFacts, BindSectionModel
+from leapp import model
 
 from leapp.libraries.common import isccfg
 from leapp.libraries.stdlib import api
@@ -11,6 +11,8 @@ def parseconfig(path='/etc/named.conf'):
     options = parser.find_options()
     if options:
         views = parser.find_views()
+    # TODO: what next?
+    return (options, view)
 
 def make_statementstring(parser, section, statement):
     """
@@ -36,10 +38,11 @@ def makesection_options(parser, section):
     model.type = 'options'
     model.config_file = section.config.path
     model.name = model.type
+    return model
 
 
 def makeconfig(parser, cfgfile):
-    config = BindConfigModel()
+    config = BindSectionModel()
     config.path = cfgfile.path
 
     opt = parser.find_options(cfgfile)
