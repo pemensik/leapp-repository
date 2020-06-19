@@ -65,7 +65,7 @@ class ConfigSection(object):
         self.name = name
         self.start = start
         self.end = end
-        self.ctext = self.value() # a copy for modification
+        self.ctext = self.original_value() # a copy for modification
         if kind is None:
             if self.config.buffer.startswith('{', self.start):
                 self.kind = self.TYPE_BLOCK
@@ -94,6 +94,9 @@ class ConfigSection(object):
         return self.kind
 
     def value(self):
+        return self.ctext
+
+    def original_value(self):
         return self.config.buffer[self.start:self.end+1]
 
     def invalue(self):
@@ -102,7 +105,8 @@ class ConfigSection(object):
         """
         t = self.type()
         if t == self.TYPE_QSTRING or t == self.TYPE_BLOCK:
-            return self.config.buffer[self.start+1:self.end]
+            #return self.config.buffer[self.start+1:self.end]
+            return self.ctext[1:-1]
         return self.value()
     pass
 
@@ -157,7 +161,7 @@ class IscConfigParser(object):
     CHAR_DELIM = ";" # Must be single character
     CHAR_CLOSING = CHAR_DELIM + "})]"
     CHAR_CLOSING_WHITESPACE = CHAR_CLOSING + string.whitespace
-    CHAR_KEYWORD = string.ascii_letters + string.digits + '-_'
+    CHAR_KEYWORD = string.ascii_letters + string.digits + '-_.:'
     CHAR_STR_OPEN = '"'
 
     def __init__(self, config=None):
@@ -565,7 +569,7 @@ class IscConfigParser(object):
             values.append(v)
             if v.value() == self.CHAR_DELIM:
                 break
-            v = self.find_next_val(cfg, key, v.end+1, section.end, end_report=True)
+            v = self.find_next_val(cfg, key, v.end+1, end_index, end_report=True)
         return values
 
     def find(self, key_string, cfg=None, delimiter='.'):
