@@ -271,11 +271,81 @@ class ConfigVariableSection(ConfigSection):
                 n += 1
         raise IndexError
 
-    def serialize(self, start=0):
+    def serialize(self):
         s = ''
-        for v in self.values[start:]:
+        for v in self.values:
             s += self.serialize()
         return s
+
+    def serialize_skip(self, replace_ignored=None):
+        """
+        Create single string from section, but skip whitespace on start
+
+        :ptype section: ConfigVariableSection
+        :param replace_ignored: Specify replaced text for whitespace
+
+        Allows normalizing with replace ignored sections.
+        Is intended to strip possible comments between parts.
+        """
+        s = ''
+        nonwhite = None
+        for v in self.values:
+            if nonwhite is None:
+                if v.type() != self.TYPE_IGNORED:
+                    nonwhite = v
+                    s += v.serialize()
+            elif replace_ignored is not None and v.type() == self.TYPE_IGNORED:
+                s += replace_ignored
+            else:
+                s += v.serialize()
+        return s
+
+
+class ModifyState(object):
+    """ Object keeping state of modifications when walking configuration file statements
+
+        It would keep modified configuration file and position of last found statement
+    """
+    def __init__(self):
+        self.value = ''
+        self.lastpos = 0
+
+    def append_before(self, section):
+        """
+        Appends content from last seen section to beginning of current one.
+        It adds also whitespace on beginning of statement, which is usually not interesting for any changes.
+
+        :ptype section: ConfigVariableSection
+        """
+
+        end = section.start
+        first = section.values[0]
+        if first.type() == first.TYPE_IGNORED:
+            end = first.end
+        cfg = section.config.buffer
+        self.value += cfg[self.lastpos:end+1]
+        self.lastpos = end+1
+
+    def move_after(self, section):
+        """ Set position to the end of section """
+        self.lastpos = section.end+1
+
+    def finish(self, section):
+        """ Append remaining part of file to modified state """
+        if self.lastpos < section.end:
+            self.value += section.config.buffer[self.lastpos:section.end+1]
+            self.lastpos = section.end
+
+    def callback_comment_out(section, state):
+        """ parser.walk callback for commenting out the section """
+        state.append_before(section)
+        state.value += '/* ' + section.serialize_skip(' ') + ' */'
+        state.move_after(section)
+
+    def callback_remove(section, state):
+        """ parser.walk callback for skipping a section """
+        state.append_before(section)
+        state.move_after(section)
 
 # Main parser class
 class IscConfigParser(object):
@@ -773,6 +843,28 @@ class IscConfigParser(object):
 
         return found_values
 
+    def walk(self, section, callbacks = {}, start=0, parent=None, state=None):
+        """ Walk over section also with nested blocks.
+
+        :param section: Section to iterate, usually ConfigFile.root_section()
+        :param callbacks: Set of callbacks with section, state parameters, indexed by statement name
+        :param start: Offset from beginning of section
+
+        Call specified actions specified in callbacks, which can react on desired statements.
+        Pass state and matching section to callback.
+        """
+        it = IscVarIterator(self, section, True, start=section.start+start)
+        for statement in it:
+            try:
+                name = statement.var(0).value()
+                if name in callbacks:
+                    f = callbacks[name]
+                    f(statement, state)
+            except IndexError:
+                pass
+            for child in statement.values:
+                if child.type() == ConfigSection.TYPE_BLOCK:
+                    self.walk(child, callbacks, 1, parent=statement, state=state)
 
     #######################################################
     ### CONFIGURATION fixes PART - END
