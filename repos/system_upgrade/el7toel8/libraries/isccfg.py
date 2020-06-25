@@ -55,7 +55,7 @@ class ConfigSection(object):
     TYPE_BLOCK = 3
     TYPE_IGNORED = 4 # comments and whitespaces
 
-    def __init__(self, config, name=None, start=None, end=None, kind=None):
+    def __init__(self, config, name=None, start=None, end=None, kind=None, parser=None):
         """
         :param config: config file inside which is this section
         :type config: ConfigFile
@@ -66,6 +66,7 @@ class ConfigSection(object):
         self.start = start
         self.end = end
         self.ctext = self.original_value() # a copy for modification
+        self.parser = parser
         if kind is None:
             if self.config.buffer.startswith('{', self.start):
                 self.kind = self.TYPE_BLOCK
@@ -75,6 +76,7 @@ class ConfigSection(object):
                 self.kind = self.TYPE_BARE
         else:
             self.kind = kind
+        self.statements = []
 
     def __repr__(self):
         text = self.value()
@@ -108,7 +110,106 @@ class ConfigSection(object):
             #return self.config.buffer[self.start+1:self.end]
             return self.ctext[1:-1]
         return self.value()
+
+    def children(self, comments=False):
+        """
+        Return list of items inside this section
+        """
+        start = self.start
+        if self.type() == self.TYPE_BLOCK:
+            start += 1
+        return list(IscIterator(self.parser, self, comments, start))
     pass
+
+    def serialize(self):
+        return self.value()
+
+class IscIterator(object):
+    """ Iterator for walking over parsed configuration
+
+        Creates sequence of ConfigSection objects for a given file.
+        That means a stream of objects.
+    """
+
+    def __init__(self, parser, section, comments=False, start=None):
+        """ Create iterator
+        :param comments: Include comments and whitespaces
+        :param start: Index for starting, None means beginning of section
+        """
+        self.parser = parser
+        self.section = section
+        self.current = None
+        self.key_wanted = True
+        self.comments = comments
+        self.waiting = None
+        if start is None:
+            start = section.start
+        self.start = start
+
+    def __iter__(self):
+        self.current = None
+        self.key_wanted = True
+        self.waiting = None
+        return self
+
+    def __next__(self):
+        index = self.start
+        cfg = self.section.config
+        if self.waiting:
+            self.current = self.waiting
+            self.waiting = None
+            return self.current
+        if self.current is not None:
+            index = self.current.end+1
+        if self.key_wanted:
+            val = self.parser.find_next_key(cfg, index, self.section.end)
+            self.key_wanted = False
+        else:
+            val = self.parser.find_next_val(cfg, None, index, self.section.end, end_report=True)
+            if val is not None and val.value() in self.parser.CHAR_DELIM:
+                self.key_wanted = True
+        if val is None:
+            if self.current is not None and self.current.end < self.section.end and self.comments:
+                self.current = ConfigSection(self.section.config, None, index, self.section.end, ConfigSection.TYPE_IGNORED)
+                return self.current
+            raise StopIteration
+        if index != val.start and self.comments:
+            # Include comments and spaces as ignored section
+            self.waiting = val
+            val = ConfigSection(val.config, None, index, val.start-1, ConfigSection.TYPE_IGNORED)
+
+        self.current = val
+        return val
+
+class IscVarIterator(object):
+    """ Iterator for walking over parsed configuration
+
+        Creates sequence of ConfigVariableSection objects for a given
+        file or section.
+    """
+
+    def __init__(self, parser, section, comments=False, start=None):
+        """ Create iterator """
+        self.parser = parser
+        self.section = section
+        self.iter = IscIterator(parser, section, comments, start)
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        vl = []
+        try:
+            statement = next(self.iter)
+            while statement:
+                vl.append(statement)
+                if self.parser.is_terminal(statement):
+                    return ConfigVariableSection(vl, None, parent=self.section);
+                statement = next(self.iter)
+        except StopIteration:
+            if vl:
+                return ConfigVariableSection(vl, None, parent=self.section)
+        raise StopIteration
 
 class ConfigVariableSection(ConfigSection):
     """
@@ -116,7 +217,8 @@ class ConfigVariableSection(ConfigSection):
 
     Intended for view and zone.
     """
-    def __init__(self, sectionlist, name, zone_class=None, parent=None):
+
+    def __init__(self, sectionlist, name, zone_class=None, parent=None, parser=None):
         """
         Creates variable block for zone or view
 
@@ -124,10 +226,15 @@ class ConfigVariableSection(ConfigSection):
         """
         last = next(reversed(sectionlist))
         first = sectionlist[0]
-        super(ConfigVariableSection, self).__init__(
-            first.config, name, start=first.start, end=last.end
-        )
         self.values = sectionlist
+        super(ConfigVariableSection, self).__init__(
+            first.config, name, start=first.start, end=last.end, parser=parser
+        )
+        if name is None:
+            try:
+                self.name = self.var(1)
+            except IndexError:
+                pass
         # For optional dns class, like IN or CH
         self.zone_class = zone_class
         self.parent = parent
@@ -141,11 +248,34 @@ class ConfigVariableSection(ConfigSection):
         """
         Return first block section in this tool
         """
-        for section in self.values:
-            if section.type() == ConfigSection.TYPE_BLOCK:
-                return section
-        return None
+        return self.vartype(0, self.TYPE_BLOCK)
 
+    def var(self, i):
+        """
+        Return value by index, ignore spaces
+        """
+        n = 0
+        for v in self.values:
+            if v.type() != ConfigSection.TYPE_IGNORED:
+                if n == i:
+                    return v
+                n += 1
+        raise IndexError
+
+    def vartype(self, i, type):
+        n = 0
+        for v in self.values:
+            if v.type() == type:
+                if n == i:
+                    return v
+                n += 1
+        raise IndexError
+
+    def serialize(self, start=0):
+        s = ''
+        for v in self.values[start:]:
+            s += self.serialize()
+        return s
 
 # Main parser class
 class IscConfigParser(object):
@@ -594,22 +724,32 @@ class IscConfigParser(object):
             items.extend(self._find_values_simple(cfgs.root_section(), keys))
         return items
 
-    def _variable_section(self, vl, parent=None):
+    def is_terminal(self, section):
+        """ Returns true when section is final character of one statement """
+        return (section.value() in self.CHAR_DELIM)
+
+    def _variable_section(self, vl, parent=None, offset=1):
         """ Create ConfigVariableSection with a name and optionally class
 
             Intended for view and zone in bind.
             :returns: ConfigVariableSection
         """
         variable = None
-        if vl is not None and len(vl) >= 2:
-            vname = vl[1].invalue()
-            vclass = None
-            vblock = vl[2]
-            if vblock.type() != ConfigSection.TYPE_BLOCK and len(vl) > 3:
-                vclass = vblock.value()
-                vblock = vl[3]
-            variable = ConfigVariableSection(vl, vname, vclass, parent)
-        return variable
+        vname = self._list_value(vl, 0)
+        vclass = None
+        v = self._list_value(vl, 1)
+        if v.type() != ConfigSection.TYPE_BLOCK and self._list_value(vl, 2):
+            vclass = v
+        return ConfigVariableSection(vl, vname, vclass, parent)
+
+    def _list_value(self, vl, i):
+        n = 0
+        for v in vl:
+            if v.type() != ConfigSection.TYPE_IGNORED:
+                if n == i:
+                    return v
+                n += 1
+        raise IndexError
 
     def _find_values_simple(self, section, keys):
         found_values = []
@@ -632,6 +772,7 @@ class IscConfigParser(object):
                 sect.start = vl[-1].end+1
 
         return found_values
+
 
     #######################################################
     ### CONFIGURATION fixes PART - END
@@ -728,7 +869,7 @@ class BindParser(IscConfigParser):
         root = cfg.root_section()
         while root is not None:
             vl = self.find_values(root, "view")
-            variable = self._variable_section(vl)
+            variable = self._variable_section(vl, root)
             if variable is not None:
                 views[variable.key()] = variable
                 # Skip current view
