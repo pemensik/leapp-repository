@@ -270,9 +270,9 @@ def test_remove_comments():
     assert len(parser.FILES_TO_CHECK) == 1
     cfg = parser.FILES_TO_CHECK[0]
     assert isinstance(cfg, isccfg.ConfigFile)
-    removed_comments = parser.remove_comments(cfg.buffer)
+    removed_comments = parser._remove_comments(cfg.buffer)
     assert len(removed_comments) < len(cfg.buffer)
-    replaced_comments = parser.replace_comments(cfg.buffer)
+    replaced_comments = parser._replace_comments(cfg.buffer)
     assert len(replaced_comments) == len(cfg.buffer)
     assert not 'This is auto' in replaced_comments
     assert not 'comment' in replaced_comments

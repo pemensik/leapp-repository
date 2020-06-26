@@ -170,7 +170,8 @@ class IscIterator(object):
                 self.key_wanted = True
         if val is None:
             if self.current is not None and self.current.end < self.section.end and self.comments:
-                self.current = ConfigSection(self.section.config, None, index, self.section.end, ConfigSection.TYPE_IGNORED)
+                self.current = ConfigSection(self.section.config, None,
+                                             index, self.section.end, ConfigSection.TYPE_IGNORED)
                 return self.current
             raise StopIteration
         if index != val.start and self.comments:
@@ -204,7 +205,7 @@ class IscVarIterator(object):
             while statement:
                 vl.append(statement)
                 if self.parser.is_terminal(statement):
-                    return ConfigVariableSection(vl, None, parent=self.section);
+                    return ConfigVariableSection(vl, None, parent=self.section)
                 statement = next(self.iter)
         except StopIteration:
             if vl:
@@ -262,10 +263,10 @@ class ConfigVariableSection(ConfigSection):
                 n += 1
         raise IndexError
 
-    def vartype(self, i, type):
+    def vartype(self, i, vtype):
         n = 0
         for v in self.values:
-            if v.type() == type:
+            if v.type() == vtype:
                 if n == i:
                     return v
                 n += 1
@@ -274,7 +275,7 @@ class ConfigVariableSection(ConfigSection):
     def serialize(self):
         s = ''
         for v in self.values:
-            s += self.serialize()
+            s += v.serialize()
         return s
 
     def serialize_skip(self, replace_ignored=None):
@@ -336,12 +337,14 @@ class ModifyState(object):
             self.value += section.config.buffer[self.lastpos:section.end+1]
             self.lastpos = section.end
 
+    @staticmethod
     def callback_comment_out(section, state):
         """ parser.walk callback for commenting out the section """
         state.append_before(section)
         state.value += '/* ' + section.serialize_skip(' ') + ' */'
         state.move_after(section)
 
+    @staticmethod
     def callback_remove(section, state):
         """ parser.walk callback for skipping a section """
         state.append_before(section)
@@ -385,7 +388,7 @@ class IscConfigParser(object):
             return True
         return False
 
-    def find_end_of_comment(self, istr, index=0):
+    def _find_end_of_comment(self, istr, index=0):
         """
         Returns index where the comment ends.
 
@@ -416,7 +419,7 @@ class IscConfigParser(object):
     def is_opening_char(self, c):
         return c in "\"'{(["
 
-    def remove_comments(self, istr, space_replace=False):
+    def _remove_comments(self, istr, space_replace=False):
         """
         Removes all comments from the given string.
 
@@ -432,7 +435,7 @@ class IscConfigParser(object):
 
         while index < length:
             if self.is_comment_start(istr, index):
-                index = self.find_end_of_comment(istr, index)
+                index = self._find_end_of_comment(istr, index)
                 if index == -1:
                     index = length
                 if space_replace:
@@ -440,7 +443,7 @@ class IscConfigParser(object):
                 if index < length and istr[index] == "\n":
                     ostr += "\n"
             elif istr[index] in self.CHAR_STR_OPEN:
-                end_str = self.find_closing_char(istr, index)
+                end_str = self._find_closing_char(istr, index)
                 if end_str == -1:
                     ostr += istr[index:]
                     break
@@ -452,19 +455,14 @@ class IscConfigParser(object):
 
         return ostr
 
-    def replace_comments(self, istr):
+    def _replace_comments(self, istr):
         """
         Replaces all comments by spaces in the given string.
 
         :param istr: input string
         :returns: string of the same length with comments replaced
         """
-        return self.remove_comments(istr, True)
-
-    def remove_comments_config(self, cfg, space_replace=False):
-        config_nocomment = copy.copy(cfg)
-        config_nocomment.buffer = self.remove_comments(config_nocomment.buffer, space_replace)
-        return config_nocomment
+        return self._remove_comments(istr, True)
 
     def find_next_token(self, istr, index=0, end_index=-1, end_report=False):
         """
@@ -505,11 +503,11 @@ class IscConfigParser(object):
         if istr[index] == '\\':
             index += 2
         elif self.is_opening_char(istr[index]):
-            index = self.find_closing_char(istr, index, end_index)
+            index = self._find_closing_char(istr, index, end_index)
             if index != -1:
                 index += 1
         elif self.is_comment_start(istr, index):
-            index = self.find_end_of_comment(istr, index)
+            index = self._find_end_of_comment(istr, index)
             if index != -1:
                 index += 1
         elif istr[index] not in self.CHAR_CLOSING_WHITESPACE:
@@ -533,7 +531,7 @@ class IscConfigParser(object):
                 index += 2
                 continue
             elif self.is_comment_start(istr, index):
-                index = self.find_end_of_comment(istr, index)
+                index = self._find_end_of_comment(istr, index)
                 if index == -1:
                     break
             elif self.is_opening_char(istr[index]) or istr[index] not in string.whitespace:
@@ -541,8 +539,7 @@ class IscConfigParser(object):
             index += 1
         return -1
 
-
-    def find_closing_char(self, istr, index=0, end_index=-1):
+    def _find_closing_char(self, istr, index=0, end_index=-1):
         """
         Returns index of equivalent closing character.
 
@@ -584,11 +581,11 @@ class IscConfigParser(object):
             if curr_c == '//':
                 index += 2
             elif self.is_comment_start(istr, index) and not isString:
-                index = self.find_end_of_comment(istr, index)
+                index = self._find_end_of_comment(istr, index)
                 if index == -1:
                     return -1
             elif not isString and self.is_opening_char(curr_c):
-                deep_close = self.find_closing_char(istr[index:])
+                deep_close = self._find_closing_char(istr[index:])
                 if deep_close == -1:
                     break
                 index += deep_close
@@ -695,7 +692,7 @@ class IscConfigParser(object):
         if not self.is_opening_char(cfg.buffer[start]):
             return self.find_next_key(cfg, start, end_index, end_report)
 
-        end = self.find_closing_char(cfg.buffer, start, end_index)
+        end = self._find_closing_char(cfg.buffer, start, end_index)
         if end == -1 or (end > end_index and end_index > 0):
             return None
         return ConfigSection(cfg, key, start, end)
@@ -796,7 +793,7 @@ class IscConfigParser(object):
 
     def is_terminal(self, section):
         """ Returns true when section is final character of one statement """
-        return (section.value() in self.CHAR_DELIM)
+        return section.value() in self.CHAR_DELIM
 
     def _variable_section(self, vl, parent=None, offset=1):
         """ Create ConfigVariableSection with a name and optionally class
@@ -804,7 +801,6 @@ class IscConfigParser(object):
             Intended for view and zone in bind.
             :returns: ConfigVariableSection
         """
-        variable = None
         vname = self._list_value(vl, 1).invalue()
         vclass = None
         v = self._list_value(vl, 2)
@@ -843,11 +839,11 @@ class IscConfigParser(object):
 
         return found_values
 
-    def walk(self, section, callbacks = {}, start=0, parent=None, state=None):
+    def walk(self, section, callbacks, start=0, parent=None, state=None):
         """ Walk over section also with nested blocks.
 
         :param section: Section to iterate, usually ConfigFile.root_section()
-        :param callbacks: Set of callbacks with section, state parameters, indexed by statement name
+        :param callbacks: Set of callbacks with name: f(section, state) parameters, indexed by statement name
         :param start: Offset from beginning of section
 
         Call specified actions specified in callbacks, which can react on desired statements.
@@ -893,7 +889,7 @@ class IscConfigParser(object):
         pattern = re.compile(r'include\s*"(.+?)"\s*;')
         # find includes in all files
         for ch_file in self.FILES_TO_CHECK:
-            nocomments = self.remove_comments(ch_file.buffer)
+            nocomments = self._remove_comments(ch_file.buffer)
             includes = re.findall(pattern, nocomments)
             for include in includes:
                 # don't include already loaded files -> prevent loops
