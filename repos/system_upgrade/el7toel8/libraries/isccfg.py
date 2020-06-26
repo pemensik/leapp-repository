@@ -907,7 +907,7 @@ class IscConfigParser(object):
                             "included by \"{parent_path}\"".format(
                                 parent_path=ch_file.path, path=include
                             ), e)
-                         ) from e
+                         )
 
 
     def load_main_config(self):
@@ -918,7 +918,7 @@ class IscConfigParser(object):
             self.new_config(self.CONFIG_FILE)
         except IOError as e:
             raise(ConfigParseError(
-                "Cannot open the configuration file: \"{path}\"".format(path=self.CONFIG_FILE)), e) from e
+                "Cannot open the configuration file: \"{path}\"".format(path=self.CONFIG_FILE)), e)
 
     def load_config(self, path=None):
         """
