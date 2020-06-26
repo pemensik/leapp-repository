@@ -232,7 +232,7 @@ class ConfigVariableSection(ConfigSection):
         )
         if name is None:
             try:
-                self.name = self.var(1)
+                self.name = self.var(1).invalue()
             except IndexError:
                 pass
         # For optional dns class, like IN or CH
@@ -805,11 +805,11 @@ class IscConfigParser(object):
             :returns: ConfigVariableSection
         """
         variable = None
-        vname = self._list_value(vl, 0)
+        vname = self._list_value(vl, 1).invalue()
         vclass = None
-        v = self._list_value(vl, 1)
+        v = self._list_value(vl, 2)
         if v.type() != ConfigSection.TYPE_BLOCK and self._list_value(vl, 2):
-            vclass = v
+            vclass = v.value()
         return ConfigVariableSection(vl, vname, vclass, parent)
 
     def _list_value(self, vl, i):
@@ -961,6 +961,9 @@ class BindParser(IscConfigParser):
         root = cfg.root_section()
         while root is not None:
             vl = self.find_values(root, "view")
+            if vl is None:
+                root = None
+                break
             variable = self._variable_section(vl, root)
             if variable is not None:
                 views[variable.key()] = variable
