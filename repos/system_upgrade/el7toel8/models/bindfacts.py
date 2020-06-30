@@ -24,7 +24,11 @@ class BindFacts(Model):
 
     topic = SystemInfoTopic
 
+    # Detected configuration files via includes
     config_files = fields.List(fields.String())
-    options = fields.Nullable(fields.Model(BindSectionModel))
-    views = fields.Nullable(fields.List(fields.Model(BindSectionModel)))
-    zones = fields.Nullable(fields.List(fields.Model(BindSectionModel)))
+
+    # Only issues detected.
+    # unsupported dnssec-lookaside statements with old values
+    # found in list of files. List of files, where unsupported
+    # statements were found. Context not yet provided
+    dnssec_lookaside = fields.Nullable(fields.String())

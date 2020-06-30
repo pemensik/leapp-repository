@@ -4,17 +4,17 @@ from leapp.models import Report, BindFacts, InstalledRedHatSignedRPM
 from leapp.tags import ChecksPhaseTag, IPUWorkflowTag
 from leapp import reporting
 from leapp.libraries.common import isccfg
-
-COMMON_REPORT_TAGS = [reporting.Tags.SERVICES]
+from leapp.libraries.stdlib import api
+from libraries import model
 
 class CheckBind(Actor):
     """
-    No documentation has been provided for the check_bind actor.
+    Actor parsing BIND configuration and checking for known issues in it
     """
 
     name = 'check_bind'
-    consumes = (InstalledRedHatSignedRPM, BindFacts)
-    produces = (Report,)
+    consumes = (InstalledRedHatSignedRPM,)
+    produces = (BindFacts,)
     tags = (ChecksPhaseTag, IPUWorkflowTag)
 
     def process(self):
@@ -22,13 +22,16 @@ class CheckBind(Actor):
         if not has_package(InstalledRedHatSignedRPM, 'bind'):
             return
 
-        reporting.create_report([
-            reporting.Title('Bind is installed'),
-            reporting.Summary(
-                        'Notification that BIND is installed'
-                    ),
-            reporting.Severity(reporting.Severity.HIGH),
-            reporting.Tags(COMMON_REPORT_TAGS + [reporting.Tags.NETWORK]),
-            reporting.Flags([reporting.Flags.INHIBITOR])
-                ])
+        facts = model.get_facts('/etc/named.conf')
+        issues = model.get_messages(facts)
+
+        if issues not None:
+            issues.extend([
+                reporting.Severity(reporting.Severity.HIGH),
+                reporting.Tags([reporting.Tags.SERVICES, reporting.Tags.NETWORK]),
+                reporting.Flags([reporting.Flags.INHIBITOR]),
+            ])
+            reporting.create_report(report)
+            api.produce(facts)
+
         pass

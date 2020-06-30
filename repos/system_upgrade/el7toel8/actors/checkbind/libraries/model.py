@@ -1,54 +1,71 @@
-from model import BindFacts, BindSectionModel
+from model import BindFacts
 from leapp import model
 
 from leapp.libraries.common import isccfg
 from leapp.libraries.stdlib import api
 
-def parseconfig(path='/etc/named.conf'):
-    """ Parse configuration """
+from leapp import reporting
+
+find_calls = {
+    'dnssec-lookaside': find_dnssec_lookaside
+}
+
+def add_statement(statement, state):
+    """ Add searched statement to found issues """
+    stmt_text = statement.serialize_skip(' ')
+    name = statement.var(0).value()
+    if name in state:
+        state[name].append((stmt_text, statement.config.path))
+    else:
+        state[name] = list((stmt_text, statement.config.path))
+
+def find_dnssec_lookaside(statement, state):
+    try:
+        assert(statement.var(0).value() == 'dnssec-lookaside')
+
+        arg = statement.var(1)
+        if arg.type() == arg.TYPE_BARE and arg.value() in ['auto', 'yes']:
+            # automatic or enabled statement
+            add_statement(statement, state)
+        elif arg.type() == arg.TYPE_QSTRING and arg.value() == '"."'
+            # dnssec-lookaside "." trust-anchor "dlv.isc.org";
+             and statement.var(2).value() == 'trust-anchor'
+             and statement.var(3).invalue() == 'dlv.isc.org':
+            add_statement(statement, state)
+    except IndexError, e:
+        pass
+
+
+def convert_found_issues(state):
+    """ Convert find state results to facts """
+    facts = BindFacts()
+    if 'dnssec-lookaside' in issues:
+        files = set()
+        for statement, path in issues['dnssec-lookaside']:
+            files.add(path)
+        facts.dnssec_lookaside = list(files)
+    return facts
+
+def get_facts(path):
+    """ Find issues in configuration files
+
+    Report used configuration files and wrong statements in each file """
     parser = isccfg.BindParser(path)
+    state = {}
+    files = set()
 
-    options = parser.find_options()
-    if options:
-        views = parser.find_views()
-    # TODO: what next?
-    return (options, view)
+    for cfg in parser.FILES_TO_CHECK:
+        parser.walk(cfg.root_section(), find_calls, state)
+        files.add(cfg.path)
 
-def make_statementstring(parser, section, statement):
-    """
-    Create single string from variable statements
-    :returns: string with just value
+    facts = convert_found_issues(state)
+    facts.files = list(files)
+    return facts
 
-    Omits terminating ; from string
-    """
-    vl = parser.find_values(section, statement)
-    if not vl:
-        return None
-    s = ''
-    for v in vl:
-        s += v.value() + ' '
-        if v.value() != ';':
-            s += ' '
-    if s:
-        s = s[:-1]
-    return s
-
-def makesection_options(parser, section):
-    model = BindSectionModel()
-    model.type = 'options'
-    model.config_file = section.config.path
-    model.name = model.type
-    return model
-
-
-def makeconfig(parser, cfgfile):
-    config = BindSectionModel()
-    config.path = cfgfile.path
-
-    opt = parser.find_options(cfgfile)
-    if opt:
-        config.options = makesection(parser, opt)
-    views = parser.find_views_file(cfgfile)
-    
-    api.produce(config)
-    pass
+def get_messages(facts):
+    if facts.dnssec_lookaside:
+        return [
+            reporting.Title('BIND configuration issues found'),
+            reporting.Summary('BIND configuration contains no longer accepted statements: dnssec-lookaside')
+                ]
+    return None
