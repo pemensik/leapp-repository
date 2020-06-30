@@ -1,14 +1,9 @@
-from model import BindFacts
-from leapp import model
+from leapp.models import BindFacts
 
 from leapp.libraries.common import isccfg
 from leapp.libraries.stdlib import api
 
 from leapp import reporting
-
-find_calls = {
-    'dnssec-lookaside': find_dnssec_lookaside
-}
 
 def add_statement(statement, state):
     """ Add searched statement to found issues """
@@ -27,9 +22,9 @@ def find_dnssec_lookaside(statement, state):
         if arg.type() == arg.TYPE_BARE and arg.value() in ['auto', 'yes']:
             # automatic or enabled statement
             add_statement(statement, state)
-        elif arg.type() == arg.TYPE_QSTRING and arg.value() == '"."'
-            # dnssec-lookaside "." trust-anchor "dlv.isc.org";
-             and statement.var(2).value() == 'trust-anchor'
+        # dnssec-lookaside "." trust-anchor "dlv.isc.org";
+        elif arg.type() == arg.TYPE_QSTRING and arg.value() == '"."' \
+             and statement.var(2).value() == 'trust-anchor' \
              and statement.var(3).invalue() == 'dlv.isc.org':
             add_statement(statement, state)
     except IndexError, e:
@@ -50,6 +45,10 @@ def get_facts(path):
     """ Find issues in configuration files
 
     Report used configuration files and wrong statements in each file """
+    find_calls = {
+        'dnssec-lookaside': find_dnssec_lookaside
+    }
+
     parser = isccfg.BindParser(path)
     state = {}
     files = set()

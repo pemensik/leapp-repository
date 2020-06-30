@@ -5,7 +5,7 @@ from leapp.tags import ChecksPhaseTag, IPUWorkflowTag
 from leapp import reporting
 from leapp.libraries.common import isccfg
 from leapp.libraries.stdlib import api
-from libraries import model
+from leapp.libraries.actor import model
 
 class CheckBind(Actor):
     """
@@ -25,7 +25,7 @@ class CheckBind(Actor):
         facts = model.get_facts('/etc/named.conf')
         issues = model.get_messages(facts)
 
-        if issues not None:
+        if issues is not None:
             issues.extend([
                 reporting.Severity(reporting.Severity.HIGH),
                 reporting.Tags([reporting.Tags.SERVICES, reporting.Tags.NETWORK]),
