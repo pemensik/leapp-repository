@@ -45,6 +45,17 @@ class ConfigFile(object):
     def root_section(self):
         return ConfigSection(self, None, 0, len(self.buffer))
 
+class MockConfig(ConfigFile):
+    """ Configuration file with contens defined on constructor.
+
+        Intended for testing the library.
+    """
+    DEFAULT_PATH = '/etc/named/mock.conf'
+
+    def __init__(self, contents, path=DEFAULT_PATH):
+        self.path = path
+        self.buffer = self.original = contents
+
 class ConfigSection(object):
     """ Representation of section or key inside single configuration file.
 

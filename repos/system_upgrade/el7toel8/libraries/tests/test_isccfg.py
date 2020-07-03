@@ -1,21 +1,17 @@
 #!/usr/bin/env python
 #
-# Tests for bind parsing
+# Tests for bind configuration parsing
 
-from leapp.libraries.common import isccfg
-
-class MockConfigFile(isccfg.ConfigFile):
-
-    def __init__(self, content, path='/etc/named.conf'):
-        # intentionally omitting parent constructor
-        self.path = path
-        self.buffer = self.original = content
-        self.status = None
+try:
+    from leapp.libraries.common import isccfg
+except ImportError:
+    # For easier testing, allow having it out-of-directory
+    import isccfg
 
 #
 # Sample configuration stubs
 #
-named_conf_default = MockConfigFile("""
+named_conf_default = isccfg.MockConfig("""
 //
 // named.conf
 //
@@ -76,32 +72,32 @@ include "/etc/named.rfc1912.zones";
 include "/etc/named.root.key";
 """)
 
-options_lookaside_no = MockConfigFile("""
+options_lookaside_no = isccfg.MockConfig("""
 options {
     dnssec-lookaside no;
 };
 """)
 
-options_lookaside_auto = MockConfigFile("""
+options_lookaside_auto = isccfg.MockConfig("""
 options {
     dnssec-lookaside /* no */ auto;
 };
 """)
 
-options_lookaside_manual = MockConfigFile("""
+options_lookaside_manual = isccfg.MockConfig("""
 options {
     # make sure parser handles comments
     dnssec-lookaside "." /* comment to confuse parser */trust-anchor "dlv.isc.org";
 };
 """)
 
-options_lookaside_commented = MockConfigFile("""
+options_lookaside_commented = isccfg.MockConfig("""
 options {
     /* dnssec-lookaside auto; */
 };
 """)
 
-views_lookaside = MockConfigFile("""
+views_lookaside = isccfg.MockConfig("""
 view "v1" IN {
     // This is auto
     dnssec-lookaside auto;
