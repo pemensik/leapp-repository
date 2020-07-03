@@ -196,6 +196,9 @@ class IscIterator(object):
         self.current = val
         return val
 
+    def next(self):
+        return self.__next__()
+
 class IscVarIterator(object):
     """ Iterator for walking over parsed configuration
 
@@ -225,6 +228,9 @@ class IscVarIterator(object):
             if vl:
                 return ConfigVariableSection(vl, None, parent=self.section)
         raise StopIteration
+
+    def next(self):
+        return self.__next__()
 
 class ConfigVariableSection(ConfigSection):
     """
