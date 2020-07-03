@@ -53,8 +53,11 @@ class MockConfig(ConfigFile):
     DEFAULT_PATH = '/etc/named/mock.conf'
 
     def __init__(self, contents, path=DEFAULT_PATH):
-        self.path = path
-        self.buffer = self.original = contents
+        self.original = contents
+        super(MockConfig, self).__init__(path)
+
+    def load(self, path):
+        self.buffer = self.original
 
 class ConfigSection(object):
     """ Representation of section or key inside single configuration file.
@@ -861,7 +864,7 @@ class IscConfigParser(object):
         Pass state and matching section to callback.
         """
         if start == 0 and section.type() == ConfigSection.TYPE_BLOCK:
-            start=1
+            start = 1
         it = IscVarIterator(self, section, True, start=section.start+start)
         for statement in it:
             try:

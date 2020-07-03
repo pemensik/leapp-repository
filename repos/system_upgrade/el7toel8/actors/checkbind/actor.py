@@ -26,12 +26,14 @@ class CheckBind(Actor):
         issues = model.get_messages(facts)
 
         if issues is not None:
+            api.produce(facts)
             issues.extend([
                 reporting.Severity(reporting.Severity.HIGH),
                 reporting.Tags([reporting.Tags.SERVICES, reporting.Tags.NETWORK]),
                 reporting.Flags([reporting.Flags.INHIBITOR]),
             ])
-            reporting.create_report(report)
-            api.produce(facts)
+            reporting.create_report(issues)
+        else:
+            self.log.info('The BIND configuration seems compatible.')
 
         pass

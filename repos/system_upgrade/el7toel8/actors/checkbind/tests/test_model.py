@@ -24,6 +24,12 @@ zone "." IN {
     assert isinstance(facts, BindFacts)
     assert facts.dnssec_lookaside is None
 
+def model_paths(model):
+    paths = list()
+    for m in model.dnssec_lookaside:
+        paths.append(m.path)
+    return paths
+
 def test_dnssec_lookaside(path):
     mockcfg = isccfg.MockConfig("""
 options {
@@ -44,4 +50,4 @@ zone "." IN {
 """, '/etc/named.conf')
     facts = model.get_facts(mockcfg)
     assert isinstance(facts, BindFacts)
-    assert '/etc/named.conf' in facts.dnssec_lookaside
+    assert '/etc/named.conf' in model_paths(facts.dnssec_lookaside)

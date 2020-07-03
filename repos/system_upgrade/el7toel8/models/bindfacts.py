@@ -1,21 +1,14 @@
 from leapp.models import Model, fields
 from leapp.topics import SystemInfoTopic
 
-class BindSectionModel(Model):
+class BindConfigIssuesModel(Model):
     """
-    Model for part of configuration file, in which configuration statements might reside.
-    It would be options {} section or view {}. Contains more statements, which are recorded here.
+    Problematic files with statements, which are problematic
     """
 
     topic = SystemInfoTopic
-    name = fields.String() # name of view or zone.
-    config_path = fields.String() # path of config file, which contains this section
-    stype = fields.StringEnum(['options', 'view', 'zone'])
-    zoneclass = fields.Nullable(fields.StringEnum(['IN', 'CH', 'HS']))
-
-    # dnssec-lookaside arguments
-    dnssec_lookaside = fields.Nullable(fields.String())
-
+    path = fields.String() # path to problematic file
+    statements = fields.List(fields.String()) # list of offending statements
 
 class BindFacts(Model):
     """
@@ -31,4 +24,4 @@ class BindFacts(Model):
     # unsupported dnssec-lookaside statements with old values
     # found in list of files. List of files, where unsupported
     # statements were found. Context not yet provided
-    dnssec_lookaside = fields.Nullable(fields.String())
+    dnssec_lookaside = fields.Nullable(fields.List(BindConfigIssuesModel))

@@ -1,4 +1,4 @@
-from leapp.models import BindFacts
+from leapp.models import BindFacts, BindConfigIssuesModel
 
 from leapp.libraries.common import isccfg
 from leapp.libraries.stdlib import api
@@ -16,29 +16,49 @@ def add_statement(statement, state):
 
 def find_dnssec_lookaside(statement, state):
     try:
-        assert(statement.var(0).value() == 'dnssec-lookaside')
+        assert statement.var(0).value() == 'dnssec-lookaside'
 
         arg = statement.var(1)
         if arg.type() == arg.TYPE_BARE and arg.value() in ['auto', 'yes']:
-            # automatic or enabled statement
+            # auto or yes statement
             add_statement(statement, state)
         # dnssec-lookaside "." trust-anchor "dlv.isc.org";
         elif arg.type() == arg.TYPE_QSTRING and arg.value() == '"."' \
              and statement.var(2).value() == 'trust-anchor' \
              and statement.var(3).invalue() == 'dlv.isc.org':
             add_statement(statement, state)
-    except IndexError, e:
+    except IndexError:
         pass
 
+def create_issue_model(path, statements):
+    model = BindConfigIssuesModel()
+    model.path = path
+    model.statements = list(statements)
+    return model
 
-def convert_found_issues(state):
+def convert_to_issues(statements):
+    """ Produce list of offending statements in set of files
+
+    :param statements: one item from list created by add_statement
+    """
+    files = dict()
+    for statement, path in statements:
+        if path in files:
+            files[path].update(statement)
+            if statement not in files[path].statements:
+                files[path].statements.append(statement)
+        else:
+            files[path] = set(statement)
+    values = list()
+    for path in files:
+        values.append(create_issue_model(path, files[path]))
+    return values
+
+def convert_found_issues(issues):
     """ Convert find state results to facts """
     facts = BindFacts()
     if 'dnssec-lookaside' in issues:
-        files = set()
-        for statement, path in issues['dnssec-lookaside']:
-            files.add(path)
-        facts.dnssec_lookaside = list(files)
+        facts.dnssec_lookaside = convert_to_issues(issues['dnssec-lookaside'])
     return facts
 
 def get_facts(path):
