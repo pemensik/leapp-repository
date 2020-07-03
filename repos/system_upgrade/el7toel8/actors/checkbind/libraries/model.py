@@ -56,7 +56,7 @@ def convert_found_issues(issues, files):
         dnssec_lookaside = convert_to_issues(issues['dnssec-lookaside'])
     return BindFacts(config_files=files, dnssec_lookaside=dnssec_lookaside)
 
-def get_facts(path):
+def get_facts(path, log=None):
     """ Find issues in configuration files
 
     Report used configuration files and wrong statements in each file """
@@ -71,6 +71,10 @@ def get_facts(path):
     for cfg in parser.FILES_TO_CHECK:
         parser.walk(cfg.root_section(), find_calls, state)
         files.add(cfg.path)
+
+    if log is not None:
+        log.debug('Found state: "{state}", files: "{files}"'.format(
+                  state=repr(state), files=files))
 
     facts = convert_found_issues(state, list(files))
     return facts
