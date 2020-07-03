@@ -19,7 +19,14 @@ class CheckBind(Actor):
 
     def process(self):
 
-        if not has_package(InstalledRedHatSignedRPM, 'bind'):
+        pkg_names = ['bind', 'bind-sdb', 'bind-pkcs11']
+        found = False
+        for fact in self.consume(InstalledRedHatSignedRPM):
+            for rpm in fact.items:
+                if rpm.name in pkg_names:
+                    found = True
+        #if not has_package(InstalledRedHatSignedRPM, 'bind':
+        if not found:
             self.log.debug('bind is not installed')
             return
 
