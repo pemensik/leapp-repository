@@ -24,4 +24,4 @@ class BindFacts(Model):
     # unsupported dnssec-lookaside statements with old values
     # found in list of files. List of files, where unsupported
     # statements were found. Context not yet provided
-    dnssec_lookaside = fields.Nullable(fields.List(BindConfigIssuesModel))
+    dnssec_lookaside = fields.Nullable(fields.List(fields.String()))

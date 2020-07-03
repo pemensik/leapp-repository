@@ -51,7 +51,8 @@ def convert_to_issues(statements):
             files[path] = set(statement)
     values = list()
     for path in files:
-        values.append(create_issue_model(path, files[path]))
+        #values.append(create_issue_model(path, files[path]))
+        values.append(path)
     return values
 
 def convert_found_issues(issues):
