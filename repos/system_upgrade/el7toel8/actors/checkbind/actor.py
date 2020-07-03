@@ -1,5 +1,4 @@
 from leapp.actors import Actor
-from leapp.libraries.common.rpms import has_package
 from leapp.models import Report, BindFacts, InstalledRedHatSignedRPM
 from leapp.tags import ChecksPhaseTag, IPUWorkflowTag
 from leapp import reporting
@@ -17,16 +16,18 @@ class CheckBind(Actor):
     produces = (BindFacts, reporting.Report)
     tags = (ChecksPhaseTag, IPUWorkflowTag)
 
-    def process(self):
+    pkg_names = {'bind', 'bind-sdb', 'bind-pkcs11'}
 
-        pkg_names = ['bind', 'bind-sdb', 'bind-pkcs11']
-        found = False
-        for fact in self.consume(InstalledRedHatSignedRPM):
+    def has_package(self, t_rpms):
+        """ Replacement for broken leapp.libraries.common.rpms.has_package """
+        for fact in self.consume(t_rpms):
             for rpm in fact.items:
-                if rpm.name in pkg_names:
-                    found = True
-        #if not has_package(InstalledRedHatSignedRPM, 'bind':
-        if not found:
+                if rpm.name in self.pkg_names:
+                    return True
+        return False
+
+    def process(self):
+        if not self.has_package(InstalledRedHatSignedRPM):
             self.log.debug('bind is not installed')
             return
 
