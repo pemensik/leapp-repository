@@ -30,12 +30,6 @@ def find_dnssec_lookaside(statement, state):
     except IndexError:
         pass
 
-def create_issue_model(path, statements):
-    model = BindConfigIssuesModel()
-    model.path = path
-    model.statements = list(statements)
-    return model
-
 def convert_to_issues(statements):
     """ Produce list of offending statements in set of files
 
@@ -51,16 +45,16 @@ def convert_to_issues(statements):
             files[path] = set(statement)
     values = list()
     for path in files:
-        values.append(create_issue_model(path, files[path]))
+        values.append(BindConfigIssuesModel(path=path, statements=list(files[path])))
         #values.append(path)
     return values
 
-def convert_found_issues(issues):
+def convert_found_issues(issues, files):
     """ Convert find state results to facts """
-    facts = BindFacts()
+    dnssec_lookaside = None
     if 'dnssec-lookaside' in issues:
-        facts.dnssec_lookaside = convert_to_issues(issues['dnssec-lookaside'])
-    return facts
+        dnssec_lookaside = convert_to_issues(issues['dnssec-lookaside'])
+    return BindFacts(config_files=files, dnssec_lookaside=dnssec_lookaside)
 
 def get_facts(path):
     """ Find issues in configuration files
@@ -78,8 +72,7 @@ def get_facts(path):
         parser.walk(cfg.root_section(), find_calls, state)
         files.add(cfg.path)
 
-    facts = convert_found_issues(state)
-    facts.files = list(files)
+    facts = convert_found_issues(state, list(files))
     return facts
 
 def get_messages(facts):
