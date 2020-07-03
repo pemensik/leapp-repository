@@ -273,3 +273,27 @@ def test_remove_comments():
     assert not 'This is auto' in replaced_comments
     assert not 'comment' in replaced_comments
     assert not 'Note no IN' in replaced_comments
+
+def cb_state(statement, state):
+    key = statement.var(0).value()
+    state[key] = statement
+
+def test_walk():
+    """ Test walk function of parser """
+
+    callbacks = {
+        'options': cb_state,
+        'dnssec-lookaside': cb_state,
+        'dnssec-validation': cb_state,
+    }
+    state = {}
+    parser = isccfg.BindParser(views_lookaside)
+    assert len(parser.FILES_TO_CHECK) == 1
+    cfg = parser.FILES_TO_CHECK[0]
+    parser.walk(cfg.root_section(), callbacks, state)
+    assert 'options' in state
+    assert 'dnssec-lookaside' in state
+    assert 'dnssec-validation' not in state
+
+if __name__ == '__main__':
+    test_walk()

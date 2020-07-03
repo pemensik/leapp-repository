@@ -850,7 +850,7 @@ class IscConfigParser(object):
 
         return found_values
 
-    def walk(self, section, callbacks, start=0, parent=None, state=None):
+    def walk(self, section, callbacks, state=None, parent=None, start=0):
         """ Walk over section also with nested blocks.
 
         :param section: Section to iterate, usually ConfigFile.root_section()
@@ -860,6 +860,8 @@ class IscConfigParser(object):
         Call specified actions specified in callbacks, which can react on desired statements.
         Pass state and matching section to callback.
         """
+        if start == 0 and section.type() == ConfigSection.TYPE_BLOCK:
+            start=1
         it = IscVarIterator(self, section, True, start=section.start+start)
         for statement in it:
             try:
@@ -871,7 +873,8 @@ class IscConfigParser(object):
                 pass
             for child in statement.values:
                 if child.type() == ConfigSection.TYPE_BLOCK:
-                    self.walk(child, callbacks, 1, parent=statement, state=state)
+                    self.walk(child, callbacks, state, parent=statement)
+        return state
 
     #######################################################
     ### CONFIGURATION fixes PART - END
