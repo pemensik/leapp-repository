@@ -12,7 +12,7 @@ def add_statement(statement, state):
     if name in state:
         state[name].append((stmt_text, statement.config.path))
     else:
-        state[name] = list((stmt_text, statement.config.path))
+        state[name] = [(stmt_text, statement.config.path)]
 
 def find_dnssec_lookaside(statement, state):
     try:
