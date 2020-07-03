@@ -14,12 +14,13 @@ class CheckBind(Actor):
 
     name = 'check_bind'
     consumes = (InstalledRedHatSignedRPM,)
-    produces = (BindFacts,)
+    produces = (BindFacts, reporting.Report)
     tags = (ChecksPhaseTag, IPUWorkflowTag)
 
     def process(self):
 
         if not has_package(InstalledRedHatSignedRPM, 'bind'):
+            self.log.debug('bind is not installed')
             return
 
         facts = model.get_facts('/etc/named.conf')
@@ -33,7 +34,8 @@ class CheckBind(Actor):
                 reporting.Flags([reporting.Flags.INHIBITOR]),
             ])
             reporting.create_report(issues)
+            self.log.info('BIND configuration issues were found.')
         else:
-            self.log.info('The BIND configuration seems compatible.')
+            self.log.info('BIND configuration seems compatible.')
 
         pass
