@@ -327,6 +327,7 @@ class ModifyState(object):
 
         It would keep modified configuration file and position of last found statement
     """
+
     def __init__(self):
         self.value = ''
         self.lastpos = 0
@@ -356,6 +357,13 @@ class ModifyState(object):
         if self.lastpos < section.end:
             self.value += section.config.buffer[self.lastpos:section.end+1]
             self.lastpos = section.end
+
+    def content(self):
+        """ Get content of (modified) section.
+
+            Would be valid after finish() was called.
+        """
+        return self.value
 
     @staticmethod
     def callback_comment_out(section, state):
