@@ -3,9 +3,8 @@
 # Simplified parsing of bind configuration, with include support and nested sections.
 
 import re
-import os.path
 import string
-import copy
+
 
 class ConfigParseError(Exception):
     """ Generic error when parsing config file """
@@ -14,6 +13,7 @@ class ConfigParseError(Exception):
         super(ConfigParseError, self).__init__(message)
         self.error = error
     pass
+
 
 class ConfigFile(object):
     """ Representation of single configuration file and its contents """
@@ -45,6 +45,7 @@ class ConfigFile(object):
     def root_section(self):
         return ConfigSection(self, None, 0, len(self.buffer))
 
+
 class MockConfig(ConfigFile):
     """ Configuration file with contens defined on constructor.
 
@@ -59,6 +60,7 @@ class MockConfig(ConfigFile):
     def load(self, path):
         self.buffer = self.original
 
+
 class ConfigSection(object):
     """ Representation of section or key inside single configuration file.
 
@@ -67,7 +69,7 @@ class ConfigSection(object):
     TYPE_BARE = 1
     TYPE_QSTRING = 2
     TYPE_BLOCK = 3
-    TYPE_IGNORED = 4 # comments and whitespaces
+    TYPE_IGNORED = 4  # comments and whitespaces
 
     def __init__(self, config, name=None, start=None, end=None, kind=None, parser=None):
         """
@@ -79,7 +81,7 @@ class ConfigSection(object):
         self.name = name
         self.start = start
         self.end = end
-        self.ctext = self.original_value() # a copy for modification
+        self.ctext = self.original_value()   # a copy for modification
         self.parser = parser
         if kind is None:
             if self.config.buffer.startswith('{', self.start):
@@ -121,7 +123,6 @@ class ConfigSection(object):
         """
         t = self.type()
         if t == self.TYPE_QSTRING or t == self.TYPE_BLOCK:
-            #return self.config.buffer[self.start+1:self.end]
             return self.ctext[1:-1]
         return self.value()
 
@@ -137,6 +138,7 @@ class ConfigSection(object):
 
     def serialize(self):
         return self.value()
+
 
 class IscIterator(object):
     """ Iterator for walking over parsed configuration
@@ -199,6 +201,7 @@ class IscIterator(object):
     def next(self):
         return self.__next__()
 
+
 class IscVarIterator(object):
     """ Iterator for walking over parsed configuration
 
@@ -231,6 +234,7 @@ class IscVarIterator(object):
 
     def next(self):
         return self.__next__()
+
 
 class ConfigVariableSection(ConfigSection):
     """
@@ -378,6 +382,7 @@ class ModifyState(object):
         state.append_before(section)
         state.move_after(section)
 
+
 # Main parser class
 class IscConfigParser(object):
     """ Parser file with support of included files.
@@ -389,7 +394,7 @@ class IscConfigParser(object):
     CONFIG_FILE = "/etc/named.conf"
     FILES_TO_CHECK = []
 
-    CHAR_DELIM = ";" # Must be single character
+    CHAR_DELIM = ";"  # Must be single character
     CHAR_CLOSING = CHAR_DELIM + "})]"
     CHAR_CLOSING_WHITESPACE = CHAR_CLOSING + string.whitespace
     CHAR_KEYWORD = string.ascii_letters + string.digits + '-_.:'
@@ -407,9 +412,9 @@ class IscConfigParser(object):
         elif config is not None:
             self.load_config(config)
 
-    ###########################################################
-    ### function for parsing of config files
-    ###########################################################
+    #
+    # function for parsing of config files
+    #
     def is_comment_start(self, istr, index=0):
         if istr[index] == "#" or (
                 index+1 < len(istr) and istr[index:index+2] in ["//", "/*"]):
@@ -527,7 +532,7 @@ class IscConfigParser(object):
         if index >= end_index or index < 0:
             return -1
 
-        #skip to the end of the current token
+        # skip to the end of the current token
         if istr[index] == '\\':
             index += 2
         elif self.is_opening_char(istr[index]):
@@ -580,12 +585,12 @@ class IscConfigParser(object):
             "(hello (world) /* ) */ ), he would say"
         index of the third ")" is returned.
         """
-        important_chars = { #TODO: should be that rather global var?
-            "{" : "}",
-            "(" : ")",
-            "[" : "]",
-            "\"" : "\"",
-            self.CHAR_DELIM : None,
+        important_chars = {  # TODO: should be that rather global var?
+            "{": "}",
+            "(": ")",
+            "[": "]",
+            "\"": "\"",
+            self.CHAR_DELIM: None,
             }
         length = len(istr)
         if end_index >= 0 and end_index < length:
@@ -659,7 +664,6 @@ class IscConfigParser(object):
             return -1
 
         while index != -1:
-            #remains = istr[index:]
             if istr.startswith(key, index):
                 if index+keylen < end_index and istr[index+keylen] not in self.CHAR_KEYWORD:
                     # key has been found
@@ -716,7 +720,7 @@ class IscConfigParser(object):
             return None
         if end_index < 0:
             end_index = len(cfg.buffer)
-        #remains = cfg.buffer[start:end_index]
+        # remains = cfg.buffer[start:end_index]
         if not self.is_opening_char(cfg.buffer[start]):
             return self.find_next_key(cfg, start, end_index, end_report)
 
@@ -893,9 +897,9 @@ class IscConfigParser(object):
                     self.walk(child, callbacks, state, parent=statement)
         return state
 
-    #######################################################
-    ### CONFIGURATION fixes PART - END
-    #######################################################
+    #
+    # CONFIGURATION fixes PART - END
+    #
 
     def is_file_loaded(self, path=""):
         """
@@ -916,7 +920,7 @@ class IscConfigParser(object):
         Finds the configuration files that are included in some configuration
         file, reads it, closes and adds into the FILES_TO_CHECK list.
         """
-        #TODO: use parser instead of regexp
+        # TODO: use parser instead of regexp
         pattern = re.compile(r'include\s*"(.+?)"\s*;')
         # find includes in all files
         for ch_file in self.FILES_TO_CHECK:
@@ -931,11 +935,8 @@ class IscConfigParser(object):
                 except IOError as e:
                     raise(ConfigParseError(
                             "Cannot open the configuration file: \"{path}\" "
-                            "included by \"{parent_path}\"".format(
-                                parent_path=ch_file.path, path=include
-                            ), e)
-                         )
-
+                            "included from \"{parent}\"".
+                            format(parent=ch_file.path, path=include), e))
 
     def load_main_config(self):
         """
@@ -951,68 +952,8 @@ class IscConfigParser(object):
         """
         Loads main config file with all included files.
         """
-        if path != None:
+        if path is not None:
             self.CONFIG_FILE = path
         self.load_main_config()
         self.load_included_files()
-    pass
-
-class BindParser(IscConfigParser):
-    """
-    Bind specific specialization IscConfigParser.
-
-    Provides some helpers for classes only used in BIND, not generic isccfg format.
-    """
-
-    def find_options(self):
-        """ Helper to find options section in current files
-
-            :rtype ConfigSection:
-            There has to be only one options in all included files.
-        """
-        for cfg in self.FILES_TO_CHECK:
-            v = self.find_val(cfg, "options")
-            if v is not None:
-                return v
-        return None
-
-    def find_views_file(self, cfg):
-        """
-        Helper searching all views in single file
-
-        :ptype cfg: ConfigFile
-        :returns: triple (viewsection, class, list[sections])
-        """
-        views = {}
-
-        root = cfg.root_section()
-        while root is not None:
-            vl = self.find_values(root, "view")
-            if vl is None:
-                root = None
-                break
-            variable = self._variable_section(vl, root)
-            if variable is not None:
-                views[variable.key()] = variable
-                # Skip current view
-                root.start = variable.end+1
-            else:
-                # no more usable views
-                root = None
-
-        return views
-
-    def find_views(self):
-        """ Helper to find view section in current files
-
-            :rtype ConfigSection:
-            There has to be only one view with that name in all included files.
-        """
-        views = {}
-
-        for cfg in self.FILES_TO_CHECK:
-            v = self.find_views_file(cfg)
-            views.update(v)
-        return views
-
     pass

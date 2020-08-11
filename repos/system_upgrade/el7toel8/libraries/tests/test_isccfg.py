@@ -22,38 +22,38 @@ named_conf_default = isccfg.MockConfig("""
 //
 
 options {
-	listen-on port 53 { 127.0.0.1; };
-	listen-on-v6 port 53 { ::1; };
-	directory 	"/var/named";
-	dump-file 	"/var/named/data/cache_dump.db";
-	statistics-file "/var/named/data/named_stats.txt";
-	memstatistics-file "/var/named/data/named_mem_stats.txt";
-	secroots-file	"/var/named/data/named.secroots";
-	recursing-file	"/var/named/data/named.recursing";
-	allow-query     { localhost; };
+    listen-on port 53 { 127.0.0.1; };
+    listen-on-v6 port 53 { ::1; };
+    directory      "/var/named";
+    dump-file      "/var/named/data/cache_dump.db";
+    statistics-file "/var/named/data/named_stats.txt";
+    memstatistics-file "/var/named/data/named_mem_stats.txt";
+    secroots-file   "/var/named/data/named.secroots";
+    recursing-file  "/var/named/data/named.recursing";
+    allow-query     { localhost; };
 
-	/* 
-	 - If you are building an AUTHORITATIVE DNS server, do NOT enable recursion.
-	 - If you are building a RECURSIVE (caching) DNS server, you need to enable 
-	   recursion. 
-	 - If your recursive DNS server has a public IP address, you MUST enable access 
-	   control to limit queries to your legitimate users. Failing to do so will
-	   cause your server to become part of large scale DNS amplification 
-	   attacks. Implementing BCP38 within your network would greatly
-	   reduce such attack surface 
-	*/
-	recursion yes;
+    /*
+     - If you are building an AUTHORITATIVE DNS server, do NOT enable recursion.
+     - If you are building a RECURSIVE (caching) DNS server, you need to enable
+       recursion.
+     - If your recursive DNS server has a public IP address, you MUST enable access
+       control to limit queries to your legitimate users. Failing to do so will
+       cause your server to become part of large scale DNS amplification
+       attacks. Implementing BCP38 within your network would greatly
+       reduce such attack surface
+    */
+    recursion yes;
 
-	dnssec-enable yes;
-	dnssec-validation yes;
+    dnssec-enable yes;
+    dnssec-validation yes;
 
-	managed-keys-directory "/var/named/dynamic";
+    managed-keys-directory "/var/named/dynamic";
 
-	pid-file "/run/named/named.pid";
-	session-keyfile "/run/named/session.key";
+    pid-file "/run/named/named.pid";
+    session-keyfile "/run/named/session.key";
 
-	/* https://fedoraproject.org/wiki/Changes/CryptoPolicy */
-	include "/etc/crypto-policies/back-ends/bind.config";
+    /* https://fedoraproject.org/wiki/Changes/CryptoPolicy */
+    include "/etc/crypto-policies/back-ends/bind.config";
 };
 
 logging {
@@ -64,13 +64,14 @@ logging {
 };
 
 zone "." IN {
-	type hint;
-	file "named.ca";
+    type hint;
+    file "named.ca";
 };
 
 include "/etc/named.rfc1912.zones";
 include "/etc/named.root.key";
 """)
+
 
 options_lookaside_no = isccfg.MockConfig("""
 options {
@@ -78,11 +79,13 @@ options {
 };
 """)
 
+
 options_lookaside_auto = isccfg.MockConfig("""
 options {
     dnssec-lookaside /* no */ auto;
 };
 """)
+
 
 options_lookaside_manual = isccfg.MockConfig("""
 options {
@@ -91,11 +94,13 @@ options {
 };
 """)
 
+
 options_lookaside_commented = isccfg.MockConfig("""
 options {
     /* dnssec-lookaside auto; */
 };
 """)
+
 
 views_lookaside = isccfg.MockConfig("""
 view "v1" IN {
@@ -116,6 +121,7 @@ view "v2" {
 };
 """)
 
+
 def check_in_section(parser, section, key, value):
     """ Helper to check some section was found
         in configuration section and has expected value
@@ -134,11 +140,13 @@ def check_in_section(parser, section, key, value):
 #
 # Begin of tests
 
+
 def test_lookaside_no():
     parser = isccfg.BindParser(options_lookaside_no)
     assert len(parser.FILES_TO_CHECK) == 1
     opt = parser.find_options()
     check_in_section(parser, opt, "dnssec-lookaside", "no")
+
 
 def test_lookaside_commented():
     parser = isccfg.BindParser(options_lookaside_commented)
@@ -147,6 +155,7 @@ def test_lookaside_commented():
     assert isinstance(opt, isccfg.ConfigSection)
     lookaside = parser.find_val_section(opt, "dnssec-lookaside")
     assert lookaside is None
+
 
 def test_default():
     parser = isccfg.BindParser(named_conf_default)
@@ -158,6 +167,7 @@ def test_default():
     check_in_section(parser, opt, "recursion", 'yes')
     check_in_section(parser, opt, "dnssec-validation", 'yes')
     check_in_section(parser, opt, "dnssec-enable", 'yes')
+
 
 def test_key_lookaside():
     parser = isccfg.BindParser(options_lookaside_manual)
@@ -177,6 +187,7 @@ def test_key_lookaside():
     value3 = parser.find_next_key(opt.config, value2b.end+1, opt.end, end_report=True)
     assert value3.value() == ';'
 
+
 def test_key_lookaside_all():
     """ Test getting variable arguments after keyword """
     parser = isccfg.BindParser(options_lookaside_manual)
@@ -192,6 +203,7 @@ def test_key_lookaside_all():
     assert values[2].value() == 'trust-anchor'
     assert values[3].value() == '"dlv.isc.org"'
     assert values[4].value() == ';'
+
 
 def test_key_lookaside_simple():
     """ Test getting variable arguments after keyword """
@@ -210,6 +222,7 @@ def test_key_lookaside_simple():
     assert values[3].value() == '"dlv.isc.org"'
     assert values[4].value() == ';'
 
+
 def test_find_index():
     """ Test simplified searching for values in sections """
     parser = isccfg.BindParser(named_conf_default)
@@ -226,6 +239,7 @@ def test_find_index():
     assert len(recursion) == 1 and len(recursion[0].values) >= 2
     assert recursion[0].values[0].value() == 'recursion'
     assert recursion[0].values[1].value() == 'yes'
+
 
 def test_key_views_lookaside():
     """ Test getting variable arguments for views """
@@ -259,6 +273,7 @@ def test_key_views_lookaside():
     assert isinstance(v2_la[3], isccfg.ConfigSection)
     assert v2_la[3].value() == '"dlv.isc.org"'
 
+
 def test_remove_comments():
     """ Test removing comments works as expected """
 
@@ -270,13 +285,15 @@ def test_remove_comments():
     assert len(removed_comments) < len(cfg.buffer)
     replaced_comments = parser._replace_comments(cfg.buffer)
     assert len(replaced_comments) == len(cfg.buffer)
-    assert not 'This is auto' in replaced_comments
-    assert not 'comment' in replaced_comments
-    assert not 'Note no IN' in replaced_comments
+    assert 'This is auto' not in replaced_comments
+    assert 'comment' not in replaced_comments
+    assert 'Note no IN' not in replaced_comments
+
 
 def cb_state(statement, state):
     key = statement.var(0).value()
     state[key] = statement
+
 
 def test_walk():
     """ Test walk function of parser """
@@ -294,6 +311,7 @@ def test_walk():
     assert 'options' in state
     assert 'dnssec-lookaside' in state
     assert 'dnssec-validation' not in state
+
 
 if __name__ == '__main__':
     test_walk()

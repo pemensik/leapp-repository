@@ -1,18 +1,18 @@
 from leapp.models import BindFacts, BindConfigIssuesModel
-
 from leapp.libraries.common import isccfg
-from leapp.libraries.stdlib import api
-
 from leapp import reporting
+
 
 def add_statement(statement, state):
     """ Add searched statement to found issues """
+
     stmt_text = statement.serialize_skip(' ')
     name = statement.var(0).value()
     if name in state:
         state[name].append((stmt_text, statement.config.path))
     else:
         state[name] = [(stmt_text, statement.config.path)]
+
 
 def find_dnssec_lookaside(statement, state):
     try:
@@ -23,18 +23,20 @@ def find_dnssec_lookaside(statement, state):
             # auto or yes statement
             add_statement(statement, state)
         # dnssec-lookaside "." trust-anchor "dlv.isc.org";
-        elif arg.type() == arg.TYPE_QSTRING and arg.value() == '"."' \
-             and statement.var(2).value() == 'trust-anchor' \
-             and statement.var(3).invalue() == 'dlv.isc.org':
+        elif (arg.type() == arg.TYPE_QSTRING and arg.value() == '"."'
+              and statement.var(2).value() == 'trust-anchor'
+              and statement.var(3).invalue() == 'dlv.isc.org'):
             add_statement(statement, state)
     except IndexError:
         pass
+
 
 def convert_to_issues(statements):
     """ Produce list of offending statements in set of files
 
     :param statements: one item from list created by add_statement
     """
+
     files = dict()
     for statement, path in statements:
         if path in files:
@@ -46,8 +48,8 @@ def convert_to_issues(statements):
     values = list()
     for path in files:
         values.append(BindConfigIssuesModel(path=path, statements=list(files[path])))
-        #values.append(path)
     return values
+
 
 def convert_found_issues(issues, files):
     """ Convert find state results to facts """
@@ -55,6 +57,7 @@ def convert_found_issues(issues, files):
     if 'dnssec-lookaside' in issues:
         dnssec_lookaside = convert_to_issues(issues['dnssec-lookaside'])
     return BindFacts(config_files=files, dnssec_lookaside=dnssec_lookaside)
+
 
 def get_facts(path, log=None):
     """ Find issues in configuration files
@@ -78,6 +81,7 @@ def get_facts(path, log=None):
 
     facts = convert_found_issues(state, list(files))
     return facts
+
 
 def get_messages(facts):
     if facts.dnssec_lookaside:

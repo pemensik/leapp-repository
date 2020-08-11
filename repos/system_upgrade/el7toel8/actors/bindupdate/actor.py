@@ -3,13 +3,14 @@ from leapp.models import BindFacts, InstalledRedHatSignedRPM
 from leapp.tags import PreparationPhaseTag, IPUWorkflowTag
 from leapp.libraries.actor import updates
 
+
 class BindUpdate(Actor):
     """
     Actor parsing facts found in configuration and modifing configuration.
     """
 
     name = 'bind_update'
-    consumes = (InstalledRedHatSignedRPM,BindFacts)
+    consumes = (InstalledRedHatSignedRPM, BindFacts)
     produces = ()
     tags = (PreparationPhaseTag, IPUWorkflowTag)
 

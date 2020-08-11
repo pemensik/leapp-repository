@@ -1,14 +1,16 @@
 from leapp.models import Model, fields
 from leapp.topics import SystemInfoTopic
 
+
 class BindConfigIssuesModel(Model):
     """
     Problematic files with statements, which are problematic
     """
 
     topic = SystemInfoTopic
-    path = fields.String() # path to problematic file
-    statements = fields.List(fields.String()) # list of offending statements
+    path = fields.String()  # path to problematic file
+    statements = fields.List(fields.String())  # list of offending statements
+
 
 class BindFacts(Model):
     """

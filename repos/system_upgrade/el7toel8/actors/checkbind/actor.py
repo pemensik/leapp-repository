@@ -1,10 +1,10 @@
 from leapp.actors import Actor
-from leapp.models import Report, BindFacts, InstalledRedHatSignedRPM
+from leapp.models import BindFacts, InstalledRedHatSignedRPM
 from leapp.tags import ChecksPhaseTag, IPUWorkflowTag
 from leapp import reporting
-from leapp.libraries.common import isccfg
 from leapp.libraries.stdlib import api
 from leapp.libraries.actor import model
+
 
 class CheckBind(Actor):
     """
