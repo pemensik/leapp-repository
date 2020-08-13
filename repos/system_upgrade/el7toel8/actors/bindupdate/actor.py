@@ -31,4 +31,4 @@ class BindUpdate(Actor):
 
         for bindfacts in self.consume(BindFacts):
             modified = updates.update_facts(bindfacts)
-            self.log.info('{0} BIND configuration files modified.'.format(modified))
+            self.log.info('%s BIND configuration files modified.', modified)

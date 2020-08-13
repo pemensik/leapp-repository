@@ -1,6 +1,7 @@
 from leapp.models import BindFacts, BindConfigIssuesModel
 from leapp.libraries.common import isccfg
 from leapp import reporting
+from leapp.libraries.stdlib import api
 
 
 def add_statement(statement, state):
@@ -17,16 +18,13 @@ def add_statement(statement, state):
 def find_dnssec_lookaside(statement, state):
     try:
         arg = statement.var(1)
-        if arg.type() == arg.TYPE_BARE and arg.value() in ['auto', 'yes']:
+        if not(arg.type() == arg.TYPE_BARE and arg.value() == 'no'):
             # auto or yes statement
-            add_statement(statement, state)
-        # dnssec-lookaside "." trust-anchor "dlv.isc.org";
-        elif (arg.type() == arg.TYPE_QSTRING and arg.value() == '"."'
-              and statement.var(2).value() == 'trust-anchor'
-              and statement.var(3).invalue() == 'dlv.isc.org'):
+            # dnssec-lookaside "." trust-anchor "dlv.isc.org";
             add_statement(statement, state)
     except IndexError:
-        pass
+        api.current_logger().warning('Unexpected statement format: "%s"',
+                                     statement.serialize_skip(' '))
 
 
 def convert_to_issues(statements):
@@ -76,9 +74,8 @@ def get_facts(path, log=None):
         parser.walk(cfg.root_section(), find_calls, state)
         files.add(cfg.path)
 
-    if log is not None:
-        log.debug('Found state: "{state}", files: "{files}"'.format(
-                  state=repr(state), files=files))
+        api.current_logger().debug('Found state: "%s", files: "%s"',
+                                   repr(state), files)
 
     facts = convert_found_issues(state, list(files))
     return facts
@@ -90,4 +87,3 @@ def get_messages(facts):
             reporting.Title('BIND configuration issues found'),
             reporting.Summary('BIND configuration contains no longer accepted statements: dnssec-lookaside')
                 ]
-    return None

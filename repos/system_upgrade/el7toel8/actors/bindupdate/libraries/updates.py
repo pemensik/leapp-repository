@@ -1,5 +1,5 @@
 from leapp.libraries.common import isccfg
-from leapp.libraries.stdlib import run
+from leapp.libraries.stdlib import run, api
 
 # Callback for walk function
 callbacks = {
@@ -20,11 +20,6 @@ def parser_file(parser, path):
         if cfg.path == path:
             return cfg
     return None
-
-
-def debug_log(log, text):
-    if log:
-        log.debug(text)
 
 
 def make_backup(path, backup_suffix='.leapp'):
@@ -53,7 +48,7 @@ def update_config(parser, cfg):
     return update_section(parser, cfg.root_section())
 
 
-def update_file(parser, path, log=None, write=True):
+def update_file(parser, path, write=True):
     """Prepare modified content for the file, make backup and rewrite it.
 
     :param parser: IscConfigParser
@@ -64,12 +59,12 @@ def update_file(parser, path, log=None, write=True):
     cfg = parser_file(parser, path)
     modified = update_config(parser, cfg)
     if modified != cfg.buffer:
-        debug_log(log, '{0} needs modification'.format(path))
+        api.current_logger().debug('%s needs modification', path)
         if write:
             make_backup(path)
             with open(path, 'w') as f:
                 f.write(modified)
-            debug_log(log, '{0} updated to size {1}'.format(path, len(modified)))
+            api.current_logger().debug('%s updated to size %d', path, len(modified))
         return True
     return False
 
