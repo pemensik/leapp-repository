@@ -7,9 +7,7 @@ from leapp.libraries.actor import model
 
 
 class CheckBind(Actor):
-    """
-    Actor parsing BIND configuration and checking for known issues in it
-    """
+    """Actor parsing BIND configuration and checking for known issues in it."""
 
     name = 'check_bind'
     consumes = (InstalledRedHatSignedRPM,)
@@ -19,7 +17,7 @@ class CheckBind(Actor):
     pkg_names = {'bind', 'bind-sdb', 'bind-pkcs11'}
 
     def has_package(self, t_rpms):
-        """ Replacement for broken leapp.libraries.common.rpms.has_package """
+        """Replacement for broken leapp.libraries.common.rpms.has_package."""
         for fact in self.consume(t_rpms):
             for rpm in fact.items:
                 if rpm.name in self.pkg_names:

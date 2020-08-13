@@ -4,7 +4,7 @@ from leapp import reporting
 
 
 def add_statement(statement, state):
-    """ Add searched statement to found issues """
+    """Add searched statement to found issues."""
 
     stmt_text = statement.serialize_skip(' ')
     name = statement.var(0).value()
@@ -32,7 +32,7 @@ def find_dnssec_lookaside(statement, state):
 
 
 def convert_to_issues(statements):
-    """ Produce list of offending statements in set of files
+    """Produce list of offending statements in set of files.
 
     :param statements: one item from list created by add_statement
     """
@@ -52,7 +52,7 @@ def convert_to_issues(statements):
 
 
 def convert_found_issues(issues, files):
-    """ Convert find state results to facts """
+    """Convert find state results to facts."""
     dnssec_lookaside = None
     if 'dnssec-lookaside' in issues:
         dnssec_lookaside = convert_to_issues(issues['dnssec-lookaside'])
@@ -60,9 +60,10 @@ def convert_found_issues(issues, files):
 
 
 def get_facts(path, log=None):
-    """ Find issues in configuration files
+    """Find issues in configuration files.
 
-    Report used configuration files and wrong statements in each file """
+    Report used configuration files and wrong statements in each file.
+    """
     find_calls = {
         'dnssec-lookaside': find_dnssec_lookaside
     }

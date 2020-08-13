@@ -4,7 +4,7 @@ from leapp.models import BindFacts
 
 
 def test_simple(path):
-    """ Test configuration is not modified without offending statements """
+    """Test configuration is not modified without offending statements."""
     mockcfg = isccfg.MockConfig("""
 options {
     listen-on port 53 { 127.0.0.1; };
@@ -27,7 +27,7 @@ zone "." IN {
 
 
 def test_dnssec_lookaside(path):
-    """ Test unsupported statements are removed """
+    """Test unsupported statements are removed."""
     mockcfg = isccfg.MockConfig("""
 options {
     listen-on port 53 { 127.0.0.1; };

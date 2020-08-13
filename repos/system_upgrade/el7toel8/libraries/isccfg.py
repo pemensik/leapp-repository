@@ -7,7 +7,7 @@ import string
 
 
 class ConfigParseError(Exception):
-    """ Generic error when parsing config file """
+    """Generic error when parsing config file."""
 
     def __init__(self, message, error=None):
         super(ConfigParseError, self).__init__(message)
@@ -16,10 +16,9 @@ class ConfigParseError(Exception):
 
 
 class ConfigFile(object):
-    """ Representation of single configuration file and its contents """
+    """Representation of single configuration file and its contents."""
     def __init__(self, path):
-        """
-        Load config file contents from path
+        """Load config file contents from path.
 
         :param path: Path to file
         """
@@ -47,9 +46,9 @@ class ConfigFile(object):
 
 
 class MockConfig(ConfigFile):
-    """ Configuration file with contens defined on constructor.
+    """Configuration file with contens defined on constructor.
 
-        Intended for testing the library.
+       Intended for testing the library.
     """
     DEFAULT_PATH = '/etc/named/mock.conf'
 
@@ -62,9 +61,9 @@ class MockConfig(ConfigFile):
 
 
 class ConfigSection(object):
-    """ Representation of section or key inside single configuration file.
+    """Representation of section or key inside single configuration file.
 
-    Section means statement, block, quoted string or any similar. """
+    Section means statement, block, quoted string or any similar."""
 
     TYPE_BARE = 1
     TYPE_QSTRING = 2
@@ -118,18 +117,14 @@ class ConfigSection(object):
         return self.config.buffer[self.start:self.end+1]
 
     def invalue(self):
-        """
-        Return just inside value of blocks and quoted strings
-        """
+        """Return just inside value of blocks and quoted strings."""
         t = self.type()
         if t == self.TYPE_QSTRING or t == self.TYPE_BLOCK:
             return self.ctext[1:-1]
         return self.value()
 
     def children(self, comments=False):
-        """
-        Return list of items inside this section
-        """
+        """Return list of items inside this section."""
         start = self.start
         if self.type() == self.TYPE_BLOCK:
             start += 1
@@ -141,14 +136,15 @@ class ConfigSection(object):
 
 
 class IscIterator(object):
-    """ Iterator for walking over parsed configuration
+    """Iterator for walking over parsed configuration.
 
-        Creates sequence of ConfigSection objects for a given file.
-        That means a stream of objects.
+       Creates sequence of ConfigSection objects for a given file.
+       That means a stream of objects.
     """
 
     def __init__(self, parser, section, comments=False, start=None):
-        """ Create iterator
+        """Create iterator.
+
         :param comments: Include comments and whitespaces
         :param start: Index for starting, None means beginning of section
         """
@@ -203,14 +199,14 @@ class IscIterator(object):
 
 
 class IscVarIterator(object):
-    """ Iterator for walking over parsed configuration
+    """Iterator for walking over parsed configuration.
 
-        Creates sequence of ConfigVariableSection objects for a given
-        file or section.
+       Creates sequence of ConfigVariableSection objects for a given
+       file or section.
     """
 
     def __init__(self, parser, section, comments=False, start=None):
-        """ Create iterator """
+        """Create iterator."""
         self.parser = parser
         self.section = section
         self.iter = IscIterator(parser, section, comments, start)
@@ -237,15 +233,13 @@ class IscVarIterator(object):
 
 
 class ConfigVariableSection(ConfigSection):
-    """
-    Representation for key and values of variable length
+    """Representation for key and values of variable length.
 
     Intended for view and zone.
     """
 
     def __init__(self, sectionlist, name, zone_class=None, parent=None, parser=None):
-        """
-        Creates variable block for zone or view
+        """Creates variable block for zone or view.
 
         :param sectionlist: list of ConfigSection, obtained from IscConfigParser.find_values()
         """
@@ -270,15 +264,11 @@ class ConfigVariableSection(ConfigSection):
         return self.zone_class + '_' + self.name
 
     def firstblock(self):
-        """
-        Return first block section in this tool
-        """
+        """Return first block section in this tool."""
         return self.vartype(0, self.TYPE_BLOCK)
 
     def var(self, i):
-        """
-        Return value by index, ignore spaces
-        """
+        """Return value by index, ignore spaces."""
         n = 0
         for v in self.values:
             if v.type() != ConfigSection.TYPE_IGNORED:
@@ -304,7 +294,7 @@ class ConfigVariableSection(ConfigSection):
 
     def serialize_skip(self, replace_ignored=None):
         """
-        Create single string from section, but skip whitespace on start
+        Create single string from section, but skip whitespace on start.
 
         :ptype section: ConfigVariableSection
         :param replace_ignored: Specify replaced text for whitespace
@@ -327,9 +317,9 @@ class ConfigVariableSection(ConfigSection):
 
 
 class ModifyState(object):
-    """ Object keeping state of modifications when walking configuration file statements
+    """Object keeping state of modifications when walking configuration file statements.
 
-        It would keep modified configuration file and position of last found statement
+    It would keep modified configuration file and position of last found statement.
     """
 
     def __init__(self):
@@ -337,9 +327,10 @@ class ModifyState(object):
         self.lastpos = 0
 
     def append_before(self, section):
-        """
-        Appends content from last seen section to beginning of current one.
-        It adds also whitespace on beginning of statement, which is usually not interesting for any changes.
+        """Appends content from last seen section to beginning of current one.
+
+        It adds also whitespace on beginning of statement,
+        which is usually not interesting for any changes.
 
         :ptype section: ConfigVariableSection
         """
@@ -353,39 +344,39 @@ class ModifyState(object):
         self.lastpos = end+1
 
     def move_after(self, section):
-        """ Set position to the end of section """
+        """Set position to the end of section."""
         self.lastpos = section.end+1
 
     def finish(self, section):
-        """ Append remaining part of file to modified state """
+        """Append remaining part of file to modified state."""
         if self.lastpos < section.end:
             self.value += section.config.buffer[self.lastpos:section.end+1]
             self.lastpos = section.end
 
     def content(self):
-        """ Get content of (modified) section.
+        """Get content of (modified) section.
 
-            Would be valid after finish() was called.
+        Would be valid after finish() was called.
         """
         return self.value
 
     @staticmethod
     def callback_comment_out(section, state):
-        """ parser.walk callback for commenting out the section """
+        """parser.walk callback for commenting out the section."""
         state.append_before(section)
         state.value += '/* ' + section.serialize_skip(' ') + ' */'
         state.move_after(section)
 
     @staticmethod
     def callback_remove(section, state):
-        """ parser.walk callback for skipping a section """
+        """parser.walk callback for skipping a section."""
         state.append_before(section)
         state.move_after(section)
 
 
 # Main parser class
 class IscConfigParser(object):
-    """ Parser file with support of included files.
+    """Parser file with support of included files.
 
     Reads ISC BIND configuration file and tries to skip commented blocks, nested sections and similar stuff.
     Imitates what isccfg does in native code, but without any use of native code.
@@ -401,10 +392,11 @@ class IscConfigParser(object):
     CHAR_STR_OPEN = '"'
 
     def __init__(self, config=None):
-        """ Construct parser
+        """Construct parser.
 
-            :param config: path to file or already loaded ConfigFile instance
-            Initialize contents from path to real config or already loaded ConfigFile class.
+        :param config: path to file or already loaded ConfigFile instance
+
+        Initialize contents from path to real config or already loaded ConfigFile class.
         """
         if isinstance(config, ConfigFile):
             self.FILES_TO_CHECK = [config]
@@ -422,8 +414,7 @@ class IscConfigParser(object):
         return False
 
     def _find_end_of_comment(self, istr, index=0):
-        """
-        Returns index where the comment ends.
+        """Returns index where the comment ends.
 
         :param istr: input string
         :param index: begin search from the index; from the start by default
@@ -453,8 +444,7 @@ class IscConfigParser(object):
         return c in "\"'{(["
 
     def _remove_comments(self, istr, space_replace=False):
-        """
-        Removes all comments from the given string.
+        """Removes all comments from the given string.
 
         :param istr: input string
         :param space_replace When true, replace comments with spaces. Skip them by default.
@@ -489,8 +479,7 @@ class IscConfigParser(object):
         return ostr
 
     def _replace_comments(self, istr):
-        """
-        Replaces all comments by spaces in the given string.
+        """Replaces all comments by spaces in the given string.
 
         :param istr: input string
         :returns: string of the same length with comments replaced
@@ -676,12 +665,13 @@ class IscConfigParser(object):
         return -1
 
     def find_next_key(self, cfg, index=0, end_index=-1, end_report=False):
-        """ Modernized variant of find_key
-            :type cfg: ConfigFile
-            :param index: Where to start search
-            :rtype: ConfigSection
+        """Modernized variant of find_key.
 
-            Searches for first place of bare keyword, without quotes or block.
+        :type cfg: ConfigFile
+        :param index: Where to start search
+        :rtype: ConfigSection
+
+        Searches for first place of bare keyword, without quotes or block.
         """
         istr = cfg.buffer
         length = len(istr)
@@ -708,12 +698,12 @@ class IscConfigParser(object):
         return None
 
     def find_next_val(self, cfg, key=None, index=0, end_index=-1, end_report=False):
-        """ Find following token.
+        """Find following token.
 
-            :param cfg: input token
-            :type cfg: ConfigFile
-            :returns: ConfigSection object or None
-            :rtype: ConfigSection
+        :param cfg: input token
+        :type cfg: ConfigFile
+        :returns: ConfigSection object or None
+        :rtype: ConfigSection
         """
         start = self.find_next_token(cfg.buffer, index, end_index, end_report)
         if start < 0:
@@ -730,14 +720,14 @@ class IscConfigParser(object):
         return ConfigSection(cfg, key, start, end)
 
     def find_val(self, cfg, key, index=0, end_index=-1):
-        """ Find value of keyword specified by key
+        """Find value of keyword specified by key.
 
-            :param cfg: ConfigFile
-            :param key: name of searched key (str)
-            :param index: start of search in cfg (int)
-            :param end_index: end of search in cfg (int)
-            :returns: ConfigSection object or None
-            :rtype: ConfigSection
+        :param cfg: ConfigFile
+        :param key: name of searched key (str)
+        :param index: start of search in cfg (int)
+        :param end_index: end of search in cfg (int)
+        :returns: ConfigSection object or None
+        :rtype: ConfigSection
         """
         if not isinstance(cfg, ConfigFile):
             raise TypeError("cfg must be ConfigFile parameter")
@@ -750,24 +740,25 @@ class IscConfigParser(object):
         return self.find_next_val(cfg, key, key_start+len(key), end_index)
 
     def find_val_section(self, section, key):
-        """ Find value of keyword in section
-            :param section: section object returned from find_val
+        """Find value of keyword in section.
 
-            Section is object found by previous find_val call.
+        :param section: section object returned from find_val
+
+        Section is object found by previous find_val call.
         """
         if not isinstance(section, ConfigSection):
             raise TypeError("section must be ConfigSection")
         return self.find_val(section.config, key, section.start+1, section.end)
 
     def find_values(self, section, key):
-        """ Find key in section and list variable parameters
+        """Find key in section and list variable parameters.
 
-            :param key: Name to statement to find
-            :returns: List of all found values in form of ConfigSection. First is key itself.
+        :param key: Name to statement to find
+        :returns: List of all found values in form of ConfigSection. First is key itself.
 
-            Returns all sections of keyname. They can be mix of "quoted strings", {nested blocks}
-            or just bare keywords. First key is section of key itself, final section includes ';'.
-            Makes it possible to comment out whole section including terminal character.
+        Returns all sections of keyname. They can be mix of "quoted strings", {nested blocks}
+        or just bare keywords. First key is section of key itself, final section includes ';'.
+        Makes it possible to comment out whole section including terminal character.
         """
 
         if isinstance(section, ConfigFile):
@@ -802,8 +793,7 @@ class IscConfigParser(object):
         return values
 
     def find(self, key_string, cfg=None, delimiter='.'):
-        """
-        Helper searching for values under requested sections
+        """Helper searching for values under requested sections.
 
         Search for statement under some sections. It is inspired by xpath style paths,
         but searches section in bind configuration.
@@ -824,14 +814,14 @@ class IscConfigParser(object):
         return items
 
     def is_terminal(self, section):
-        """ Returns true when section is final character of one statement """
+        """.Returns true when section is final character of one statement."""
         return section.value() in self.CHAR_DELIM
 
     def _variable_section(self, vl, parent=None, offset=1):
-        """ Create ConfigVariableSection with a name and optionally class
+        """Create ConfigVariableSection with a name and optionally class.
 
-            Intended for view and zone in bind.
-            :returns: ConfigVariableSection
+        Intended for view and zone in bind.
+        :returns: ConfigVariableSection
         """
         vname = self._list_value(vl, 1).invalue()
         vclass = None
@@ -872,7 +862,7 @@ class IscConfigParser(object):
         return found_values
 
     def walk(self, section, callbacks, state=None, parent=None, start=0):
-        """ Walk over section also with nested blocks.
+        """Walk over section also with nested blocks.
 
         :param section: Section to iterate, usually ConfigFile.root_section()
         :param callbacks: Set of callbacks with name: f(section, state) parameters, indexed by statement name
@@ -916,7 +906,8 @@ class IscConfigParser(object):
         return config
 
     def load_included_files(self):
-        """
+        """Add included list to parser.
+
         Finds the configuration files that are included in some configuration
         file, reads it, closes and adds into the FILES_TO_CHECK list.
         """
@@ -939,9 +930,7 @@ class IscConfigParser(object):
                             format(parent=ch_file.path, path=include), e))
 
     def load_main_config(self):
-        """
-        Loads main CONFIG_FILE.
-        """
+        """Loads main CONFIG_FILE."""
         try:
             self.new_config(self.CONFIG_FILE)
         except IOError as e:
@@ -949,9 +938,7 @@ class IscConfigParser(object):
                 "Cannot open the configuration file: \"{path}\"".format(path=self.CONFIG_FILE)), e)
 
     def load_config(self, path=None):
-        """
-        Loads main config file with all included files.
-        """
+        """Loads main config file with all included files."""
         if path is not None:
             self.CONFIG_FILE = path
         self.load_main_config()

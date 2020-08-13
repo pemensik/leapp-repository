@@ -2,17 +2,17 @@ from isccfg import IscConfigParser
 
 
 class BindParser(IscConfigParser):
-    """
-    Bind specific specialization IscConfigParser.
+    """Bind specific specialization IscConfigParser.
 
     Provides some helpers for classes only used in BIND, not generic isccfg format.
     """
 
     def find_options(self):
-        """ Helper to find options section in current files
+        """Helper to find options section in current files.
 
-            :rtype ConfigSection:
-            There has to be only one options in all included files.
+        :rtype ConfigSection:
+
+        There has to be only one options in all included files.
         """
         for cfg in self.FILES_TO_CHECK:
             v = self.find_val(cfg, "options")
@@ -21,8 +21,7 @@ class BindParser(IscConfigParser):
         return None
 
     def find_views_file(self, cfg):
-        """
-        Helper searching all views in single file
+        """Helper searching all views in single file.
 
         :ptype cfg: ConfigFile
         :returns: triple (viewsection, class, list[sections])
@@ -47,10 +46,11 @@ class BindParser(IscConfigParser):
         return views
 
     def find_views(self):
-        """ Helper to find view section in current files
+        """Helper to find view section in current files.
 
-            :rtype ConfigSection:
-            There has to be only one view with that name in all included files.
+        :rtype ConfigSection:
+
+        There has to be only one view with that name in all included files.
         """
 
         views = {}

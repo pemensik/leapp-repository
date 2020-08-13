@@ -8,7 +8,7 @@ callbacks = {
 
 
 def paths_from_issues(issues):
-    """ Extract paths from list of BindConfigIssuesModel """
+    """Extract paths from list of BindConfigIssuesModel."""
     paths = []
     for issue in issues:
         paths.append(issue.path)
@@ -28,13 +28,14 @@ def debug_log(log, text):
 
 
 def make_backup(path, backup_suffix='.leapp'):
-    """ Make backup of a file before modification """
+    """Make backup of a file before modification."""
     backup_path = path + backup_suffix
     run(['cp', '--preserve=all', path, backup_path])
 
 
 def update_section(parser, section):
-    """ Modify one section
+    """Modify one section.
+
     :ptype section: ConfigSection
     """
     state = isccfg.ModifyState()
@@ -44,7 +45,8 @@ def update_section(parser, section):
 
 
 def update_config(parser, cfg):
-    """ Modify contents of file accoriding to rules
+    """Modify contents of file accoriding to rules.
+
     :ptype cfg: ConfigFile
     :returns str: Modified config contents
     """
@@ -52,7 +54,8 @@ def update_config(parser, cfg):
 
 
 def update_file(parser, path, log=None, write=True):
-    """ Prepare modified content for the file, make backup and rewrite it
+    """Prepare modified content for the file, make backup and rewrite it.
+
     :param parser: IscConfigParser
     :param path: String with path to a file
     :param log: Log instance with debug(str) method or None
@@ -72,7 +75,8 @@ def update_file(parser, path, log=None, write=True):
 
 
 def update_facts(facts, path='/etc/named.conf'):
-    """ Parse and update all files according to supplied facts
+    """Parse and update all files according to supplied facts.
+
     :param facts: BindFacts instance
     :param path: String to main configuration file
     :returns: number of modified files

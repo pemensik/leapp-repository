@@ -17,7 +17,7 @@ class BindUpdate(Actor):
     pkg_names = {'bind', 'bind-sdb', 'bind-pkcs11'}
 
     def has_package(self, t_rpms):
-        """ Replacement for broken leapp.libraries.common.rpms.has_package """
+        """Replacement for broken leapp.libraries.common.rpms.has_package."""
         for fact in self.consume(t_rpms):
             for rpm in fact.items:
                 if rpm.name in self.pkg_names:
