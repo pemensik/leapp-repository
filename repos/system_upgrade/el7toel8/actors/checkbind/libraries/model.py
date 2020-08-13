@@ -87,3 +87,4 @@ def get_messages(facts):
             reporting.Title('BIND configuration issues found'),
             reporting.Summary('BIND configuration contains no longer accepted statements: dnssec-lookaside')
                 ]
+    return []
