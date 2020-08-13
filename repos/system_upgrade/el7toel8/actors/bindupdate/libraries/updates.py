@@ -36,7 +36,7 @@ def make_backup(path, backup_suffix='.leapp'):
 def update_section(parser, section):
     """Modify one section.
 
-    :ptype section: ConfigSection
+    :type section: ConfigSection
     """
     state = isccfg.ModifyState()
     parser.walk(section, callbacks, state)
@@ -47,7 +47,7 @@ def update_section(parser, section):
 def update_config(parser, cfg):
     """Modify contents of file accoriding to rules.
 
-    :ptype cfg: ConfigFile
+    :type cfg: ConfigFile
     :returns str: Modified config contents
     """
     return update_section(parser, cfg.root_section())

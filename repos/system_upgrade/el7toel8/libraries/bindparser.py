@@ -23,7 +23,7 @@ class BindParser(IscConfigParser):
     def find_views_file(self, cfg):
         """Helper searching all views in single file.
 
-        :ptype cfg: ConfigFile
+        :type cfg: ConfigFile
         :returns: triple (viewsection, class, list[sections])
         """
         views = {}

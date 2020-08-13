@@ -294,7 +294,7 @@ class ConfigVariableSection(ConfigSection):
         """
         Create single string from section, but skip whitespace on start.
 
-        :ptype section: ConfigVariableSection
+        :type section: ConfigVariableSection
         :param replace_ignored: Specify replaced text for whitespace
 
         Allows normalizing with replace ignored sections.
@@ -330,7 +330,7 @@ class ModifyState(object):
         It adds also whitespace on beginning of statement,
         which is usually not interesting for any changes.
 
-        :ptype section: ConfigVariableSection
+        :type section: ConfigVariableSection
         """
 
         end = section.start
@@ -797,9 +797,9 @@ class IscConfigParser(object):
         but searches section in bind configuration.
 
         :param key_string: keywords delimited by dots. For example options.dnssec-lookaside
-        :ptype key_string: str
+        :type key_string: str
         :param cfg: Search only in given config file
-        :ptype cfg: ConfigFile
+        :type cfg: ConfigFile
         :returns: list of ConfigVariableSection
         """
         keys = key_string.split(delimiter)
