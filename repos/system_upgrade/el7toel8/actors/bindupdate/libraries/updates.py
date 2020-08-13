@@ -23,7 +23,7 @@ def parser_file(parser, path):
 
 
 def debug_log(log, text):
-    if log is not None:
+    if log:
         log.debug(text)
 
 

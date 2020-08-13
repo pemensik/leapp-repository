@@ -36,7 +36,6 @@ class ConfigFile(object):
     def load(self, path):
         with open(path, 'r') as f:
             self.buffer = self.original = f.read()
-            f.close()
 
     def is_modified(self):
         return self.original == self.buffer
@@ -129,7 +128,6 @@ class ConfigSection(object):
         if self.type() == self.TYPE_BLOCK:
             start += 1
         return list(IscIterator(self.parser, self, comments, start))
-    pass
 
     def serialize(self):
         return self.value()
