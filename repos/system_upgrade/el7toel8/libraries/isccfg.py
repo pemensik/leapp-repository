@@ -192,8 +192,7 @@ class IscIterator(object):
         self.current = val
         return val
 
-    def next(self):
-        return self.__next__()
+    next = __next__  # Python2 compat
 
 
 class IscVarIterator(object):
@@ -226,8 +225,7 @@ class IscVarIterator(object):
                 return ConfigVariableSection(vl, None, parent=self.section)
         raise StopIteration
 
-    def next(self):
-        return self.__next__()
+    next = __next__  # Python2 compat
 
 
 class ConfigVariableSection(ConfigSection):
