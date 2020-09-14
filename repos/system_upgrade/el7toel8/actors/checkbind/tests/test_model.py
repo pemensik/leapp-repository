@@ -10,6 +10,12 @@ def model_paths(model):
     return paths
 
 
+def get_facts(cfg):
+    facts = model.get_facts(cfg)
+    assert isinstance(facts, BindFacts)
+    return facts
+
+
 def test_simple(path):
     mockcfg = isccfg.MockConfig("""
 options {
@@ -27,8 +33,7 @@ zone "." IN {
     file "named.ca";
 };
 """, '/etc/named.conf')
-    facts = model.get_facts(mockcfg)
-    assert isinstance(facts, BindFacts)
+    facts = get_facts(mockcfg)
     assert facts.dnssec_lookaside is None
 
 
@@ -50,6 +55,26 @@ zone "." IN {
     file "named.ca";
 };
 """, '/etc/named.conf')
-    facts = model.get_facts(mockcfg)
-    assert isinstance(facts, BindFacts)
+    facts = get_facts(mockcfg)
     assert '/etc/named.conf' in model_paths(facts.dnssec_lookaside)
+
+
+def test_listen_on_v6(path):
+    present = isccfg.MockConfig("""
+options {
+    listen-on { any; };
+    listen-on-v6 { any; };
+};
+""", '/etc/named.conf')
+    missing = isccfg.MockConfig("""
+options {
+    listen-on { any; };
+    #listen-on-v6 { any; };
+};
+""", '/etc/named.conf')
+
+    facts = get_facts(present)
+    assert not facts.listen_on_v6_missing
+
+    facts = get_facts(missing)
+    assert facts.listen_on_v6_missing
