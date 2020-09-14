@@ -72,7 +72,7 @@ def get_facts(path, log=None):
         'listen-on-v6': add_statement,
     }
 
-    parser = isccfg.BindParser(path)
+    parser = isccfg.IscConfigParser(path)
     state = {}
     files = set()
 
