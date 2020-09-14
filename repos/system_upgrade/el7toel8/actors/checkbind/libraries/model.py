@@ -47,13 +47,18 @@ def convert_to_issues(statements):
     return values
 
 
-def convert_found_issues(issues, files):
-    """Convert find state results to facts."""
+def convert_found_state(state, files):
+    """Convert find state results to facts.
+
+    Check found statements and create facts from them."""
 
     dnssec_lookaside = None
-    if 'dnssec-lookaside' in issues:
-        dnssec_lookaside = convert_to_issues(issues['dnssec-lookaside'])
-    return BindFacts(config_files=files, dnssec_lookaside=dnssec_lookaside)
+    if 'dnssec-lookaside' in state:
+        dnssec_lookaside = convert_to_issues(state['dnssec-lookaside'])
+
+    return BindFacts(config_files=files,
+                     dnssec_lookaside=dnssec_lookaside,
+                     listen_on_v6_missing='listen-on-v6' not in state)
 
 
 def get_facts(path, log=None):
@@ -63,7 +68,8 @@ def get_facts(path, log=None):
     """
 
     find_calls = {
-        'dnssec-lookaside': find_dnssec_lookaside
+        'dnssec-lookaside': find_dnssec_lookaside,
+        'listen-on-v6': add_statement,
     }
 
     parser = isccfg.BindParser(path)
@@ -77,14 +83,26 @@ def get_facts(path, log=None):
         api.current_logger().debug('Found state: "%s", files: "%s"',
                                    repr(state), files)
 
-    facts = convert_found_issues(state, list(files))
+    facts = convert_found_state(state, list(files))
     return facts
 
 
-def get_messages(facts):
+def make_report(facts):
+    summary_messages = []
     if facts.dnssec_lookaside:
+        summary_messages.append('BIND configuration contains no longer accepted statements: dnssec-lookaside.')
+    if facts.listen_on_v6_missing:
+        summary_messages.append('Default value of listen-on-v6 have changed, but it is not present in configuration.'
+                                ' named service will now listen on INET6 sockets also.')
+
+    if summary_messages:
+        summary = ' '.join(summary_messages)
         return [
             reporting.Title('BIND configuration issues found'),
-            reporting.Summary('BIND configuration contains no longer accepted statements: dnssec-lookaside')
-                ]
-    return []
+            reporting.Summary(summary),
+            reporting.Severity(reporting.Severity.HIGH),
+            reporting.Tags([reporting.Tags.SERVICES, reporting.Tags.NETWORK]),
+            reporting.Flags([reporting.Flags.INHIBITOR]),
+        ]
+
+    return None

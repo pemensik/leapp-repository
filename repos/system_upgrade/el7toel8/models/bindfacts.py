@@ -27,3 +27,6 @@ class BindFacts(Model):
     # found in list of files. List of files, where unsupported
     # statements were found. Context not yet provided
     dnssec_lookaside = fields.Nullable(fields.List(fields.Model(BindConfigIssuesModel)))
+
+    # Missing listen-on-v6 option
+    listen_on_v6_missing = fields.Boolean(default=False)

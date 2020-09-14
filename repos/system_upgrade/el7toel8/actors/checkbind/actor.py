@@ -30,18 +30,13 @@ class CheckBind(Actor):
             return
 
         facts = model.get_facts('/etc/named.conf')
-        issues = model.get_messages(facts)
+        report = model.make_report(facts)
 
-        if issues is not None:
+        if report:
             api.produce(facts)
-            issues.extend([
-                reporting.Severity(reporting.Severity.HIGH),
-                reporting.Tags([reporting.Tags.SERVICES, reporting.Tags.NETWORK]),
-                reporting.Flags([reporting.Flags.INHIBITOR]),
-            ])
-            reporting.create_report(issues)
             self.log.info('BIND configuration issues were found.')
+            reporting.create_report(report)
         else:
-            self.log.info('BIND configuration seems compatible.')
+            self.log.debug('BIND configuration seems compatible.')
 
         pass
