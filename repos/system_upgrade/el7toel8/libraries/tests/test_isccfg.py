@@ -126,7 +126,7 @@ def check_in_section(parser, section, key, value):
     """ Helper to check some section was found
         in configuration section and has expected value
 
-        :type parser: BindParser
+        :type parser: IscConfigParser
         :type section: bind.ConfigSection
         :type key: str
         :param value: expected value """
@@ -136,31 +136,54 @@ def check_in_section(parser, section, key, value):
     assert cfgval.value() == value
     return cfgval
 
+
+def cb_state(statement, state):
+    """Callback used in IscConfigParser.walk()"""
+    key = statement.var(0).value()
+    state[key] = statement
+
+
+def find_options(parser):
+    """Replace IscConfigParser.find_option with walk use"""
+    state = {}
+    callbacks = {
+        'options': cb_state,
+    }
+    assert len(parser.FILES_TO_CHECK) >= 1
+    cfg = parser.FILES_TO_CHECK[0]
+    parser.walk(cfg.root_section(), callbacks, state)
+    options = state['options']
+    if options:
+        assert isinstance(options, isccfg.ConfigVariableSection)
+        return options.firstblock()
+    return None
+
+
 # End of helpers
 #
 # Begin of tests
 
 
 def test_lookaside_no():
-    parser = isccfg.BindParser(options_lookaside_no)
+    parser = isccfg.IscConfigParser(options_lookaside_no)
     assert len(parser.FILES_TO_CHECK) == 1
-    opt = parser.find_options()
+    opt = find_options(parser)
     check_in_section(parser, opt, "dnssec-lookaside", "no")
 
 
 def test_lookaside_commented():
-    parser = isccfg.BindParser(options_lookaside_commented)
+    parser = isccfg.IscConfigParser(options_lookaside_commented)
     assert len(parser.FILES_TO_CHECK) == 1
-    opt = parser.find_options()
+    opt = find_options(parser)
     assert isinstance(opt, isccfg.ConfigSection)
     lookaside = parser.find_val_section(opt, "dnssec-lookaside")
     assert lookaside is None
 
 
 def test_default():
-    parser = isccfg.BindParser(named_conf_default)
+    parser = isccfg.IscConfigParser(named_conf_default)
     assert len(parser.FILES_TO_CHECK) == 4
-    opt = parser.find_options()
+    opt = find_options(parser)
     check_in_section(parser, opt, "directory", '"/var/named"')
     check_in_section(parser, opt, "session-keyfile", '"/run/named/session.key"')
     check_in_section(parser, opt, "allow-query", '{ localhost; }')
@@ -170,9 +193,8 @@ def test_default():
 
 
 def test_key_lookaside():
-    parser = isccfg.BindParser(options_lookaside_manual)
-    assert len(parser.FILES_TO_CHECK) == 1
-    opt = parser.find_options()
+    parser = isccfg.IscConfigParser(options_lookaside_manual)
+    opt = find_options(parser)
     key = parser.find_next_key(opt.config, opt.start+1, opt.end)
     assert isinstance(key, isccfg.ConfigSection)
     assert key.value() == 'dnssec-lookaside'
@@ -190,9 +212,9 @@ def test_key_lookaside():
 
 def test_key_lookaside_all():
     """ Test getting variable arguments after keyword """
-    parser = isccfg.BindParser(options_lookaside_manual)
+    parser = isccfg.IscConfigParser(options_lookaside_manual)
     assert len(parser.FILES_TO_CHECK) == 1
-    opt = parser.find_options()
+    opt = find_options(parser)
     assert isinstance(opt, isccfg.ConfigSection)
     values = parser.find_values(opt, "dnssec-lookaside")
     assert values is not None
@@ -207,7 +229,7 @@ def test_key_lookaside_all():
 
 def test_key_lookaside_simple():
     """ Test getting variable arguments after keyword """
-    parser = isccfg.BindParser(options_lookaside_manual)
+    parser = isccfg.IscConfigParser(options_lookaside_manual)
     assert len(parser.FILES_TO_CHECK) == 1
     stmts = parser.find('options.dnssec-lookaside')
     assert stmts is not None
@@ -225,7 +247,7 @@ def test_key_lookaside_simple():
 
 def test_find_index():
     """ Test simplified searching for values in sections """
-    parser = isccfg.BindParser(named_conf_default)
+    parser = isccfg.IscConfigParser(named_conf_default)
     assert len(parser.FILES_TO_CHECK) >= 1
     stmts = parser.find('logging.channel.severity')
     assert stmts is not None and len(stmts) == 1
@@ -241,18 +263,36 @@ def test_find_index():
     assert recursion[0].values[1].value() == 'yes'
 
 
+def cb_view(statement, state):
+    if 'view' not in state:
+        state['view'] = {}
+    name = statement.var(1).invalue()
+    second = statement.var(2)
+    if second.type() != isccfg.ConfigSection.TYPE_BLOCK:
+        name = second.value() + '_' + name
+    state['view'][name] = statement
+
+
 def test_key_views_lookaside():
     """ Test getting variable arguments for views """
 
-    parser = isccfg.BindParser(views_lookaside)
+    parser = isccfg.IscConfigParser(views_lookaside)
     assert len(parser.FILES_TO_CHECK) == 1
-    opt = parser.find_options()
+    opt = find_options(parser)
     assert isinstance(opt, isccfg.ConfigSection)
     opt_val = parser.find_values(opt, "dnssec-lookaside")
     assert isinstance(opt_val[1], isccfg.ConfigSection)
     assert opt_val[1].value() == 'no'
 
-    views = parser.find_views()
+    state = {}
+    callbacks = {
+        'view': cb_view,
+    }
+    assert len(parser.FILES_TO_CHECK) >= 1
+    cfg = parser.FILES_TO_CHECK[0]
+    parser.walk(cfg.root_section(), callbacks, state)
+
+    views = state['view']
     assert len(views) == 2
 
     v1 = views['IN_v1']
@@ -277,7 +317,7 @@ def test_key_views_lookaside():
 def test_remove_comments():
     """ Test removing comments works as expected """
 
-    parser = isccfg.BindParser(views_lookaside)
+    parser = isccfg.IscConfigParser(views_lookaside)
     assert len(parser.FILES_TO_CHECK) == 1
     cfg = parser.FILES_TO_CHECK[0]
     assert isinstance(cfg, isccfg.ConfigFile)
@@ -290,11 +330,6 @@ def test_remove_comments():
     assert 'Note no IN' not in replaced_comments
 
 
-def cb_state(statement, state):
-    key = statement.var(0).value()
-    state[key] = statement
-
-
 def test_walk():
     """ Test walk function of parser """
 
@@ -304,7 +339,7 @@ def test_walk():
         'dnssec-validation': cb_state,
     }
     state = {}
-    parser = isccfg.BindParser(views_lookaside)
+    parser = isccfg.IscConfigParser(views_lookaside)
     assert len(parser.FILES_TO_CHECK) == 1
     cfg = parser.FILES_TO_CHECK[0]
     parser.walk(cfg.root_section(), callbacks, state)
@@ -314,4 +349,4 @@ def test_walk():
 
 
 if __name__ == '__main__':
-    test_walk()
+    test_key_views_lookaside()
