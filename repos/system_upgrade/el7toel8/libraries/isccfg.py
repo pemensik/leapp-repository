@@ -124,7 +124,7 @@ class ConfigSection(object):
     def invalue(self):
         """Return just inside value of blocks and quoted strings."""
         t = self.type()
-        if t == self.TYPE_QSTRING or t == self.TYPE_BLOCK:
+        if t in (self.TYPE_QSTRING, self.TYPE_BLOCK):
             return self.ctext[1:-1]
         return self.value()
 
@@ -550,11 +550,11 @@ class IscConfigParser(object):
             index += 1
 
         # find next token (can be already under the current index)
-        while index >= 0 and index < end_index:
+        while 0 <= index < end_index:
             if istr[index] == '\\':
                 index += 2
                 continue
-            elif self.is_comment_start(istr, index):
+            if self.is_comment_start(istr, index):
                 index = self._find_end_of_comment(istr, index)
                 if index == -1:
                     break
@@ -584,7 +584,7 @@ class IscConfigParser(object):
             self.CHAR_DELIM: None,
             }
         length = len(istr)
-        if end_index >= 0 and end_index < length:
+        if 0 <= end_index < length:
             length = end_index
 
         if length < 2:
@@ -689,10 +689,10 @@ class IscConfigParser(object):
             while istr[index] in self.CHAR_KEYWORD and index < end_index:
                 index += 1
 
-            if index <= end_index and keystart < index and istr[index] not in self.CHAR_KEYWORD:
+            if keystart < index <= end_index and istr[index] not in self.CHAR_KEYWORD:
                 # key has been found
                 return ConfigSection(cfg, istr[keystart:index], keystart, index-1)
-            elif istr[index] in self.CHAR_DELIM:
+            if istr[index] in self.CHAR_DELIM:
                 return ConfigSection(cfg, istr[index], index, index)
 
             index = self.find_next_token(istr, index, end_index, end_report)
@@ -717,7 +717,7 @@ class IscConfigParser(object):
             return self.find_next_key(cfg, start, end_index, end_report)
 
         end = self._find_closing_char(cfg.buffer, start, end_index)
-        if end == -1 or (end > end_index and end_index > 0):
+        if end == -1 or (0 < end_index < end):
             return None
         return ConfigSection(cfg, key, start, end)
 
