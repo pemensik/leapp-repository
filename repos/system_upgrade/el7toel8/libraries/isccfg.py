@@ -9,9 +9,15 @@ import string
 class ConfigParseError(Exception):
     """Generic error when parsing config file."""
 
-    def __init__(self, message, error=None):
+    def __init__(self, error=None, parent=None):
+        # IOError on python3 includes path, on python2 it does not
+        message = "Cannot open the configuration file \"{path}\": {error}".format(
+                    path=error.filename, error=str(error))
+        if parent:
+            message += "; included from \"{0}\"".format(parent)
         super(ConfigParseError, self).__init__(message)
         self.error = error
+        self.parent = parent
     pass
 
 
@@ -901,6 +907,12 @@ class IscConfigParser(object):
         self.FILES_TO_CHECK.append(config)
         return config
 
+    def on_include_error(self, e):
+        """Handle IO errors on file reading.
+
+        Override to create custom error handling."""
+        raise e
+
     def load_included_files(self):
         """Add included list to parser.
 
@@ -920,18 +932,14 @@ class IscConfigParser(object):
                 try:
                     self.new_config(include)
                 except IOError as e:
-                    raise(ConfigParseError(
-                            "Cannot open the configuration file: \"{path}\" "
-                            "included from \"{parent}\"".
-                            format(parent=ch_file.path, path=include), e))
+                    self.on_include_error(ConfigParseError(e, include))
 
     def load_main_config(self):
         """Loads main CONFIG_FILE."""
         try:
             self.new_config(self.CONFIG_FILE)
         except IOError as e:
-            raise(ConfigParseError(
-                "Cannot open the configuration file: \"{path}\"".format(path=self.CONFIG_FILE)), e)
+            raise ConfigParseError(e)
 
     def load_config(self, path=None):
         """Loads main config file with all included files."""
