@@ -51,9 +51,6 @@ options {
 
     pid-file "/run/named/named.pid";
     session-keyfile "/run/named/session.key";
-
-    /* https://fedoraproject.org/wiki/Changes/CryptoPolicy */
-    include "/etc/crypto-policies/back-ends/bind.config";
 };
 
 logging {
@@ -182,7 +179,7 @@ def test_lookaside_commented():
 
 def test_default():
     parser = isccfg.IscConfigParser(named_conf_default)
-    assert len(parser.FILES_TO_CHECK) == 4
+    assert len(parser.FILES_TO_CHECK) == 3
     opt = find_options(parser)
     check_in_section(parser, opt, "directory", '"/var/named"')
     check_in_section(parser, opt, "session-keyfile", '"/run/named/session.key"')
