@@ -16,7 +16,7 @@ def get_facts(cfg):
     return facts
 
 
-def test_simple(path):
+def test_simple():
     mockcfg = isccfg.MockConfig("""
 options {
     listen-on port 53 { 127.0.0.1; };
@@ -37,7 +37,7 @@ zone "." IN {
     assert facts.dnssec_lookaside is None
 
 
-def test_dnssec_lookaside(path):
+def test_dnssec_lookaside():
     mockcfg = isccfg.MockConfig("""
 options {
     listen-on port 53 { 127.0.0.1; };
@@ -59,7 +59,7 @@ zone "." IN {
     assert '/etc/named.conf' in model_paths(facts.dnssec_lookaside)
 
 
-def test_listen_on_v6(path):
+def test_listen_on_v6():
     present = isccfg.MockConfig("""
 options {
     listen-on { any; };

@@ -3,7 +3,7 @@ from leapp.libraries.actor import updates
 from leapp.models import BindFacts
 
 
-def test_simple(path):
+def test_simple():
     """Test configuration is not modified without offending statements."""
     mockcfg = isccfg.MockConfig("""
 options {
@@ -26,7 +26,7 @@ zone "." IN {
     assert modified == mockcfg.buffer
 
 
-def test_dnssec_lookaside(path):
+def test_dnssec_lookaside():
     """Test unsupported statements are removed."""
     mockcfg = isccfg.MockConfig("""
 options {
