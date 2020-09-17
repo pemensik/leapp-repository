@@ -3,9 +3,9 @@ from leapp.libraries.actor import model
 from leapp.models import BindFacts
 
 
-def model_paths(model):
+def model_paths(issues_model):
     paths = list()
-    for m in model.dnssec_lookaside:
+    for m in issues_model:
         paths.append(m.path)
     return paths
 
