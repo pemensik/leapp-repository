@@ -65,8 +65,10 @@ zone "." IN {
     file "named.ca";
 };
 
-include "/etc/named.rfc1912.zones";
-include "/etc/named.root.key";
+# Avoid including files from bind package, may be not installed
+# include "/etc/named.rfc1912.zones";
+# include "/etc/named.root.key";
+include "/dev/null";
 """)
 
 
@@ -179,7 +181,7 @@ def test_lookaside_commented():
 
 def test_default():
     parser = isccfg.IscConfigParser(named_conf_default)
-    assert len(parser.FILES_TO_CHECK) == 3
+    assert len(parser.FILES_TO_CHECK) >= 2
     opt = find_options(parser)
     check_in_section(parser, opt, "directory", '"/var/named"')
     check_in_section(parser, opt, "session-keyfile", '"/run/named/session.key"')
